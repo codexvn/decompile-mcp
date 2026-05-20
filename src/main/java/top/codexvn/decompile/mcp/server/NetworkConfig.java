@@ -26,7 +26,7 @@ public final class NetworkConfig {
         log.info("  以下 MCP 端点可直接导入客户端:");
         for (String ip : ips) {
             String url = "http://" + ip + ":" + port + "/mcp";
-            String json = "{\"mcpServers\":{\"jar-decompile\":{\"url\":\"" + url + "\"}}}";
+            String json = "{\"mcpServers\":{\"decompile-mcp\":{\"url\":\"" + url + "\"}}}";
             log.info("    {}", json);
         }
 

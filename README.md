@@ -17,7 +17,7 @@ java -Dserver.port=9090 -Dmaven.repositories=https://maven.aliyun.com/repository
 
 启动后输出可直接导入 MCP 客户端的配置：
 ```json
-{"mcpServers":{"jar-decompile":{"url":"http://<你的IP>:8080/mcp"}}}
+{"mcpServers":{"decompile-mcp":{"url":"http://<你的IP>:8080/mcp"}}}
 ```
 
 ## 九个工具
