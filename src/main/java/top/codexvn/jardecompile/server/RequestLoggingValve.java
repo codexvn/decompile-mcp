@@ -1,4 +1,4 @@
-package top.codexvn.server;
+package top.codexvn.jardecompile.server;
 
 import java.io.IOException;
 import java.util.UUID;

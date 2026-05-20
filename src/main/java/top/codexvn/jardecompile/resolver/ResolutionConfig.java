@@ -1,4 +1,4 @@
-package top.codexvn.resolver;
+package top.codexvn.jardecompile.resolver;
 
 public record ResolutionConfig(
     boolean preferSource,

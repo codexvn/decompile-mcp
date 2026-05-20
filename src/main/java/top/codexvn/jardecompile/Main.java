@@ -1,8 +1,8 @@
-package top.codexvn;
+package top.codexvn.jardecompile;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import top.codexvn.server.SseServer;
+import top.codexvn.jardecompile.server.SseServer;
 
 public class Main {
 

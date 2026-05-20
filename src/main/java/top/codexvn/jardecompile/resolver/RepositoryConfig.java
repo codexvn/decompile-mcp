@@ -1,4 +1,4 @@
-package top.codexvn.resolver;
+package top.codexvn.jardecompile.resolver;
 
 import java.util.ArrayList;
 import java.util.List;

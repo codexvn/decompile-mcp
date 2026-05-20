@@ -104,7 +104,7 @@
                     <appendAssemblyId>false</appendAssemblyId>
                     <archive>
                         <manifest>
-                            <mainClass>top.codexvn.Main</mainClass>
+                            <mainClass>top.codexvn.jardecompile.Main</mainClass>
                         </manifest>
                     </archive>
                     <descriptorRefs>

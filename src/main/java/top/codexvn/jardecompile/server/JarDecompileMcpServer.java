@@ -1,4 +1,4 @@
-package top.codexvn.server;
+package top.codexvn.jardecompile.server;
 
 import io.modelcontextprotocol.spec.McpSchema;
 import io.modelcontextprotocol.spec.McpStreamableServerTransportProvider;
@@ -7,11 +7,11 @@ import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.server.McpSyncServer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import top.codexvn.decompiler.DecompilerService;
-import top.codexvn.resolver.JarResolver;
-import top.codexvn.tool.JarGlobTool;
-import top.codexvn.tool.JarGrepTool;
-import top.codexvn.tool.JarReadTool;
+import top.codexvn.jardecompile.decompiler.DecompilerService;
+import top.codexvn.jardecompile.resolver.JarResolver;
+import top.codexvn.jardecompile.tool.JarGlobTool;
+import top.codexvn.jardecompile.tool.JarGrepTool;
+import top.codexvn.jardecompile.tool.JarReadTool;
 
 public class JarDecompileMcpServer {
 

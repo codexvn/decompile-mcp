@@ -1,4 +1,4 @@
-package top.codexvn.server;
+package top.codexvn.jardecompile.server;
 
 import io.modelcontextprotocol.json.jackson3.JacksonMcpJsonMapper;
 import io.modelcontextprotocol.server.transport.HttpServletStreamableServerTransportProvider;

@@ -21,11 +21,14 @@
 ## 项目结构
 
 ```
-src/main/java/top/codexvn/
-├── Main.java                       — 入口点，启动 SSE 服务器
+src/main/java/top/codexvn/jardecompile/
+├── Main.java                       — 入口点，启动 HTTP 服务器
 ├── server/
-│   ├── SseServer.java              — Jetty 嵌入 + SSE Servlet 注册 + 端口配置
-│   └── JarDecompileMcpServer.java  — MCP 服务器组装：注入服务、注册工具
+│   ├── SseServer.java              — Tomcat 嵌入 + Streamable HTTP Servlet 注册 + 端口配置
+│   ├── JarDecompileMcpServer.java  — MCP 服务器组装：注入服务、注册工具
+│   ├── I18n.java                   — 中英文切换工具
+│   ├── NetworkConfig.java          — 网卡 IP 检测 + MCP 客户端配置打印
+│   └── RequestLoggingValve.java    — 请求日志 + traceId
 ├── resolver/
 │   ├── MavenCoordinate.java        — record: groupId, artifactId, version + 路径工具方法
 │   ├── RepositoryConfig.java       — 工具类：从系统属性/环境变量加载仓库列表

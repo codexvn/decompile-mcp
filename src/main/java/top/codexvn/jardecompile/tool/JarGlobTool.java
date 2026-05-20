@@ -1,4 +1,4 @@
-package top.codexvn.tool;
+package top.codexvn.jardecompile.tool;
 
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
@@ -13,11 +13,11 @@ import java.util.stream.Stream;
 import io.modelcontextprotocol.spec.McpSchema;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import top.codexvn.resolver.JarResolver;
-import top.codexvn.resolver.MavenCoordinate;
-import top.codexvn.resolver.ResolutionConfig;
-import top.codexvn.resolver.ResolutionResult;
-import top.codexvn.server.I18n;
+import top.codexvn.jardecompile.resolver.JarResolver;
+import top.codexvn.jardecompile.resolver.MavenCoordinate;
+import top.codexvn.jardecompile.resolver.ResolutionConfig;
+import top.codexvn.jardecompile.resolver.ResolutionResult;
+import top.codexvn.jardecompile.server.I18n;
 
 public class JarGlobTool {
 

@@ -1,4 +1,4 @@
-package top.codexvn.decompiler;
+package top.codexvn.jardecompile.decompiler;
 
 import java.io.IOException;
 import java.nio.file.FileSystem;
