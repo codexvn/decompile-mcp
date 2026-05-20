@@ -44,7 +44,7 @@ public class DecompileMcpServer {
         PipGrepTool pipGrep = new PipGrepTool();
 
         this.server = McpServer.sync(transport)
-            .serverInfo("jar-decompile-mcp", VERSION)
+            .serverInfo("decompile-mcp", VERSION)
             .capabilities(McpSchema.ServerCapabilities.builder().tools(true).build())
             .build();
 

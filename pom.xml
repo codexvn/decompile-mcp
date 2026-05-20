@@ -5,14 +5,14 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>top.codexvn</groupId>
-    <artifactId>jar-decompile-mcp</artifactId>
+    <artifactId>decompile-mcp</artifactId>
     <version>1.0-SNAPSHOT</version>
     <packaging>jar</packaging>
 
-    <name>jar-decompile-mcp</name>
+    <name>decompile-mcp</name>
     <description>
-        MCP server providing jar_read, jar_glob, and jar_grep tools
-        for decompiling and exploring JAR files from Maven repositories.
+        MCP 服务器，为 coding agent 提供从 Maven/npm/PyPI 包中读取和搜索源代码的能力。
+        支持 jar_read/glob/grep、npm_read/glob/grep、pip_read/glob/grep 共九个工具。
     </description>
 
     <properties>
@@ -114,7 +114,7 @@
                 <artifactId>maven-assembly-plugin</artifactId>
                 <version>3.7.1</version>
                 <configuration>
-                    <finalName>jar-decompile-mcp</finalName>
+                    <finalName>decompile-mcp</finalName>
                     <appendAssemblyId>false</appendAssemblyId>
                     <archive>
                         <manifest>

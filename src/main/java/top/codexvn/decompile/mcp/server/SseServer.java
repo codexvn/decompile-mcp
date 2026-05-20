@@ -54,7 +54,7 @@ public class SseServer {
 
     public void start() throws Exception {
         log.info("========================================");
-        log.info("  jar-decompile-mcp v{}", DecompileMcpServer.VERSION);
+        log.info("  decompile-mcp v{}", DecompileMcpServer.VERSION);
         log.info("  绑定地址: {}:{}", host, port);
         log.info("========================================");
 

@@ -9,7 +9,7 @@ public class Main {
     private static final Logger log = LoggerFactory.getLogger(Main.class);
 
     public static void main(String[] args) {
-        log.info("Starting jar-decompile-mcp SSE server...");
+        log.info("Starting decompile-mcp server...");
         log.info("Java version: {}", System.getProperty("java.version"));
 
         try {

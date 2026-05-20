@@ -16,15 +16,16 @@ RUN addgroup -S mcp && adduser -S mcp -G mcp
 
 WORKDIR /app
 # 从构建阶段复制 fat JAR
-COPY --from=builder /build/target/jar-decompile-mcp.jar /app/jar-decompile-mcp.jar
+COPY --from=builder /build/target/decompile-mcp.jar /app/decompile-mcp.jar
 
-# SSE 模式默认端口
+# Streamable HTTP 默认端口
 EXPOSE 8080
 
-# 挂载点：Maven 本地仓库，持久化已下载的 JAR 避免重复下载
+# 挂载点：统一缓存目录，持久化已下载的包避免重复下载
 VOLUME ["/maven-repo"]
 
 # 容器使用非 root 用户
 USER mcp
 
-ENTRYPOINT ["java", "-Dmaven.repo.local=/maven-repo", "-jar", "/app/jar-decompile-mcp.jar"]
+# Maven 仓库指向挂载卷；npm/pip 缓存使用默认位置（可在运行时通过 DECOMPILE_CACHE_DIR 覆盖）
+ENTRYPOINT ["java", "-Dmaven.repo.local=/maven-repo", "-jar", "/app/decompile-mcp.jar"]

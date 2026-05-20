@@ -1,6 +1,6 @@
-# jar-decompile-mcp
+# decompile-mcp
 
-基于 SSE 协议的 MCP 服务器，为 coding agent 提供从 Maven 仓库 JAR 包中反编译和搜索 Java 源代码的能力。
+基于 Streamable HTTP 协议的 MCP 服务器，为 coding agent 提供从 Maven/npm/PyPI 包中读取和搜索源代码的能力。共 9 个工具（jar/npm/pip × read/glob/grep）。
 
 ## 快速开始
 
@@ -9,36 +9,33 @@
 mvn clean package -DskipTests
 
 # 启动（默认端口 8080）
-java -jar target/jar-decompile-mcp.jar
+java -jar target/decompile-mcp.jar
 
 # 自定义端口 + 阿里云镜像
-java -Dserver.port=9090 -Dmaven.repositories=https://maven.aliyun.com/repository/public -jar target/jar-decompile-mcp.jar
+java -Dserver.port=9090 -Dmaven.repositories=https://maven.aliyun.com/repository/public -jar target/decompile-mcp.jar
 ```
 
 启动后输出可直接导入 MCP 客户端的配置：
 ```json
-{"mcpServers":{"jar-decompile":{"url":"http://<你的IP>:8080/sse"}}}
+{"mcpServers":{"jar-decompile":{"url":"http://<你的IP>:8080/mcp"}}}
 ```
 
-## 三个工具
+## 九个工具
 
-| 工具 | 说明 |
-|---|---|
-| `jar_read` | 反编译/读取 Maven JAR 中指定类的源码，cat -n 格式输出，支持分页 |
-| `jar_glob` | 列出 JAR 中匹配 glob 模式的条目 |
-| `jar_grep` | 在 JAR 所有反编译类中正则搜索，grep -n 格式输出 |
+| 生态 | read | glob | grep |
+|---|---|---|---|
+| Maven JAR | `jar_read` | `jar_glob` | `jar_grep` |
+| npm | `npm_read` | `npm_glob` | `npm_grep` |
+| PyPI | `pip_read` | `pip_glob` | `pip_grep` |
 
-所有工具均支持：
-- 源码包优先（`prefer_source`，默认 true）
-- 强制反编译（`force_decompile`）
-- 指定仓库 URL（`repository_url`）
-- 强制远程下载（`force_remote`）
+jar 工具支持反编译（CFR）+ 源码包优先；npm/pip 工具直接读取包内源码。
+jar 工具额外支持：`prefer_source`、`force_decompile`、`repository_url`、`force_remote`。
 
 ## Docker 部署
 
 ```bash
-docker build -f docker/Dockerfile -t jar-decompile-mcp .
-docker run --rm -p 8080:8080 -v ~/.m2/repository:/maven-repo jar-decompile-mcp
+docker build -f docker/Dockerfile -t decompile-mcp .
+docker run --rm -p 8080:8080 -v ~/.m2/repository:/maven-repo decompile-mcp
 ```
 
 ## 配置参数

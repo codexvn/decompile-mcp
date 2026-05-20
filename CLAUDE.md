@@ -1,6 +1,6 @@
 # jar-decompile-mcp
 
-基于 SSE 协议的 MCP 服务器，为 coding agent 提供从 Maven 仓库 JAR 包中反编译和搜索 Java 源代码的能力。通过 `jar_read`、`jar_glob`、`jar_grep` 三个工具，agent 可以像操作本地文件系统一样探索第三方依赖的实现。
+基于 Streamable HTTP 协议的 MCP 服务器，为 coding agent 提供从 Maven/npm/PyPI 包中读取和搜索源代码的能力。提供 9 个工具（`jar_read/glob/grep`、`npm_read/glob/grep`、`pip_read/glob/grep`），agent 可以像操作本地文件系统一样探索第三方依赖的实现。
 
 支持多客户端并发连接，可部署在服务器上作为常驻 HTTP 服务。
 
@@ -95,7 +95,7 @@ src/main/java/top/codexvn/decompile/mcp/
 
 ### 1. 选择 Jetty 12 嵌入而非 Spring Boot
 
-- Jetty 12 嵌入仅 ~3MB，fat JAR 总大小可控
+- Tomcat Embed 10.1 仅 ~3MB，fat JAR 总大小可控
 - 直接使用 `HttpServletSseServerTransportProvider`（官方 SDK 内置），无需适配层
 - 代码量极小——`SseServer.java` 仅 ~90 行完成 HTTP 服务器组装
 
@@ -195,23 +195,23 @@ CFR (Class File Reader) 是 Java 反编译的事实标准：
 mvn clean package -DskipTests
 
 # 默认端口 8080 启动
-java -jar target/jar-decompile-mcp.jar
+java -jar target/decompile-mcp.jar
 
 # 自定义端口
-java -Dserver.port=9090 -jar target/jar-decompile-mcp.jar
+java -Dserver.port=9090 -jar target/decompile-mcp.jar
 
 # 仅本地监听
-java -Dserver.host=127.0.0.1 -jar target/jar-decompile-mcp.jar
+java -Dserver.host=127.0.0.1 -jar target/decompile-mcp.jar
 
 # 指定 Maven 本地仓库
-java -Dmaven.repo.local=/path/to/.m2/repository -jar target/jar-decompile-mcp.jar
+java -Dmaven.repo.local=/path/to/.m2/repository -jar target/decompile-mcp.jar
 
 # 指定镜像仓库
-java -Dmaven.repositories=https://maven.aliyun.com/repository/public -jar target/jar-decompile-mcp.jar
+java -Dmaven.repositories=https://maven.aliyun.com/repository/public -jar target/decompile-mcp.jar
 
 # 通过环境变量配置仓库
 export M2_REPOSITORIES=https://nexus.company.com/repository/maven-public,https://maven.aliyun.com/repository/public
-java -jar target/jar-decompile-mcp.jar
+java -jar target/decompile-mcp.jar
 ```
 
 ### SSE 端点
@@ -235,7 +235,7 @@ java -jar target/jar-decompile-mcp.jar
 ### 镜像构建
 
 ```bash
-docker build -f docker/Dockerfile -t jar-decompile-mcp .
+docker build -f docker/Dockerfile -t decompile-mcp .
 ```
 
 多阶段构建：`maven:3.9-eclipse-temurin-21-alpine`（编译）→ `eclipse-temurin:21-jre-alpine`（运行），最终镜像约 120MB。
@@ -258,13 +258,13 @@ docker-compose -f docker/docker-compose.yml up
 # 基本运行
 docker run --rm -p 8080:8080 \
   -v ~/.m2/repository:/maven-repo \
-  jar-decompile-mcp
+  decompile-mcp
 
 # 自定义端口 + 镜像仓库
 docker run --rm -p 9090:8080 \
   -v ~/.m2/repository:/maven-repo \
   -e M2_REPOSITORIES=https://maven.aliyun.com/repository/public \
-  jar-decompile-mcp
+  decompile-mcp
 ```
 
 ## MCP 客户端配置
@@ -287,7 +287,7 @@ docker run --rm -p 9090:8080 \
 
 ```bash
 # 启动服务器
-java -jar target/jar-decompile-mcp.jar &
+java -jar target/decompile-mcp.jar &
 
 # 连接 SSE 端点，应收到 endpoint 事件
 curl -N http://localhost:8080/sse

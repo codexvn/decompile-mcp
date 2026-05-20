@@ -1,19 +1,19 @@
 services:
-  jar-decompile-mcp:
+  decompile-mcp:
     build:
       context: ..
       dockerfile: docker/Dockerfile
-    image: jar-decompile-mcp:latest
-    container_name: jar-decompile-mcp
+    image: decompile-mcp:latest
+    container_name: decompile-mcp
     ports:
-      # SSE 模式 HTTP 端口
+      # Streamable HTTP 端口
       - "${SERVER_PORT:-8080}:8080"
     volumes:
-      # 挂载本地 Maven 仓库，避免每次启动重新下载依赖
-      - ${HOME}/.m2/repository:/maven-repo
+      # 挂载缓存目录，持久化已下载的包（Maven/npm/PyPI + 反编译缓存）
+      - ${HOME}/.decompile-mcp:/maven-repo
     environment:
       - SERVER_PORT=8080
       - SERVER_HOST=0.0.0.0
-      # 可选：配置镜像仓库列表
+      # 可选：配置 Maven 镜像仓库列表
       - M2_REPOSITORIES=${M2_REPOSITORIES:-}
     restart: "no"
