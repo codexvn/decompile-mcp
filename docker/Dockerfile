@@ -18,11 +18,13 @@ WORKDIR /app
 # 从构建阶段复制 fat JAR
 COPY --from=builder /build/target/jar-decompile-mcp.jar /app/jar-decompile-mcp.jar
 
+# SSE 模式默认端口
+EXPOSE 8080
+
 # 挂载点：Maven 本地仓库，持久化已下载的 JAR 避免重复下载
 VOLUME ["/maven-repo"]
 
 # 容器使用非 root 用户
 USER mcp
 
-# 日志输出到 stderr，stdout 保留给 MCP JSON-RPC 协议
 ENTRYPOINT ["java", "-Dmaven.repo.local=/maven-repo", "-jar", "/app/jar-decompile-mcp.jar"]

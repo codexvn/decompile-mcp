@@ -1,13 +1,11 @@
 package top.codexvn.server;
 
-import io.modelcontextprotocol.json.jackson3.JacksonMcpJsonMapper;
 import io.modelcontextprotocol.spec.McpSchema;
+import io.modelcontextprotocol.spec.McpServerTransportProvider;
 import io.modelcontextprotocol.server.McpServer;
 import io.modelcontextprotocol.server.McpSyncServer;
-import io.modelcontextprotocol.server.transport.StdioServerTransportProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import tools.jackson.databind.json.JsonMapper;
 import top.codexvn.decompiler.DecompilerService;
 import top.codexvn.resolver.JarResolver;
 import top.codexvn.tool.JarGlobTool;
@@ -18,21 +16,22 @@ public class JarDecompileMcpServer {
 
     private static final Logger log = LoggerFactory.getLogger(JarDecompileMcpServer.class);
 
-    private final McpSyncServer server;
+    public static final String VERSION = "1.0.0";
 
-    public JarDecompileMcpServer() {
-        JarResolver resolver = new JarResolver();
-        DecompilerService decompiler = new DecompilerService();
+    private final McpSyncServer server;
+    private final JarResolver resolver;
+    private final DecompilerService decompiler;
+
+    public JarDecompileMcpServer(McpServerTransportProvider transport) {
+        this.resolver = new JarResolver();
+        this.decompiler = new DecompilerService();
 
         JarReadTool jarRead = new JarReadTool(resolver, decompiler);
         JarGlobTool jarGlob = new JarGlobTool(resolver);
         JarGrepTool jarGrep = new JarGrepTool(resolver, decompiler);
 
-        var jsonMapper = new JacksonMcpJsonMapper(new JsonMapper());
-        var transport = new StdioServerTransportProvider(jsonMapper);
-
         this.server = McpServer.sync(transport)
-            .serverInfo("jar-decompile-mcp", "1.0.0")
+            .serverInfo("jar-decompile-mcp", VERSION)
             .capabilities(McpSchema.ServerCapabilities.builder()
                 .tools(true)
                 .build())

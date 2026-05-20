@@ -63,7 +63,7 @@
             <version>1.9.22</version>
         </dependency>
 
-        <!-- Logging (SLF4J + Logback, stderr only) -->
+        <!-- Logging (SLF4J + Logback, SSE 模式改为文件 + stderr) -->
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
@@ -73,6 +73,13 @@
             <groupId>ch.qos.logback</groupId>
             <artifactId>logback-classic</artifactId>
             <version>1.5.12</version>
+        </dependency>
+
+        <!-- Tomcat Embed — SSE 模式的嵌入式 HTTP 服务器 -->
+        <dependency>
+            <groupId>org.apache.tomcat.embed</groupId>
+            <artifactId>tomcat-embed-core</artifactId>
+            <version>10.1.34</version>
         </dependency>
     </dependencies>
 
