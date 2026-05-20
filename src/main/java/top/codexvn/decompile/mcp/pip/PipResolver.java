@@ -2,25 +2,17 @@ package top.codexvn.decompile.mcp.pip;
 
 import top.codexvn.decompile.mcp.server.CacheConfig;
 import java.io.BufferedInputStream;
-import top.codexvn.decompile.mcp.server.CacheConfig;
 import java.io.IOException;
-import top.codexvn.decompile.mcp.server.CacheConfig;
 import java.io.InputStream;
-import top.codexvn.decompile.mcp.server.CacheConfig;
 import java.net.URI;
-import top.codexvn.decompile.mcp.server.CacheConfig;
 import java.net.http.HttpClient;
-import top.codexvn.decompile.mcp.server.CacheConfig;
 import java.net.http.HttpRequest;
-import top.codexvn.decompile.mcp.server.CacheConfig;
 import java.net.http.HttpResponse;
-import top.codexvn.decompile.mcp.server.CacheConfig;
 import java.nio.file.Files;
-import top.codexvn.decompile.mcp.server.CacheConfig;
 import java.nio.file.Path;
-import top.codexvn.decompile.mcp.server.CacheConfig;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.regex.Matcher;
-import top.codexvn.decompile.mcp.server.CacheConfig;
 import java.util.regex.Pattern;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
@@ -31,13 +23,17 @@ import org.slf4j.LoggerFactory;
 public class PipResolver {
 
     private static final Logger log = LoggerFactory.getLogger(PipResolver.class);
-    private static final String SIMPLE_API = "https://pypi.org/simple/";
+    private static final String DEFAULT_INDEX = "https://pypi.org/simple/";
     private static final HttpClient HTTP = HttpClient.newBuilder()
         .followRedirects(HttpClient.Redirect.NORMAL).build();
     private static final Path CACHE_DIR = CacheConfig.pipCache();
 
+    private final List<String> indices;
+
     public PipResolver() {
         try { Files.createDirectories(CACHE_DIR); } catch (IOException ignored) {}
+        this.indices = loadIndices();
+        log.info("PipResolver initialized, indices: {}", indices);
     }
 
     public Path resolve(String packageName, String version) throws PipException {
@@ -47,46 +43,53 @@ public class PipResolver {
             return cached;
         }
 
-        try {
-            String downloadUrl = findSdistUrl(packageName, version);
-            log.info("Downloading pip package: {}=={}", packageName, version);
+        // 按优先级尝试各镜像
+        List<String> errors = new ArrayList<>();
+        for (String index : indices) {
+            try {
+                String downloadUrl = findSdistUrl(index, packageName, version);
+                log.info("Downloading pip package: {}=={} from {}", packageName, version, index);
 
-            Path tgzFile = Files.createTempFile("pip-", ".tar.gz");
-            HttpRequest req = HttpRequest.newBuilder(URI.create(downloadUrl)).build();
-            HttpResponse<InputStream> resp = HTTP.send(req, HttpResponse.BodyHandlers.ofInputStream());
-            try (InputStream in = resp.body()) {
-                Files.copy(in, tgzFile);
+                Path tgzFile = Files.createTempFile("pip-", ".tar.gz");
+                HttpRequest req = HttpRequest.newBuilder(URI.create(downloadUrl)).build();
+                HttpResponse<InputStream> resp = HTTP.send(req, HttpResponse.BodyHandlers.ofInputStream());
+                try (InputStream in = resp.body()) {
+                    Files.copy(in, tgzFile);
+                }
+
+                Path extracted = CACHE_DIR.resolve(packageName + "-" + version);
+                extractTarGz(tgzFile, extracted);
+                Files.deleteIfExists(tgzFile);
+
+                log.info("Extracted pip package to: {}", extracted);
+                return extracted;
+            } catch (Exception e) {
+                String msg = index + ": " + e.getMessage();
+                log.debug("pip mirror failed: {}", msg);
+                errors.add(msg);
             }
-
-            Path extracted = CACHE_DIR.resolve(packageName + "-" + version);
-            extractTarGz(tgzFile, extracted);
-            Files.deleteIfExists(tgzFile);
-
-            log.info("Extracted pip package to: {}", extracted);
-            return extracted;
-        } catch (Exception e) {
-            throw new PipException("Failed to resolve pip package " + packageName + "==" + version + ": " + e.getMessage(), e);
         }
+
+        throw new PipException("Failed to resolve pip package " + packageName + "==" + version
+            + " from all indices: " + String.join(" | ", errors));
     }
 
-    private String findSdistUrl(String packageName, String version) throws IOException, InterruptedException {
-        // PyPI simple API: GET /simple/{package}/ returns HTML with links
-        String url = SIMPLE_API + packageName + "/";
+    private String findSdistUrl(String index, String packageName, String version)
+        throws IOException, InterruptedException {
+        String url = index + packageName + "/";
         HttpRequest req = HttpRequest.newBuilder(URI.create(url)).build();
         HttpResponse<String> resp = HTTP.send(req, HttpResponse.BodyHandlers.ofString());
         if (resp.statusCode() != 200) {
             throw new PipException("PyPI returned " + resp.statusCode() + " for " + packageName);
         }
 
-        // 查找 .tar.gz 链接（优先），跳过 .whl
-        Pattern linkPattern = Pattern.compile("<a[^>]*href=\"([^\"]+)\"[^>]*>(.+?)</a>", Pattern.CASE_INSENSITIVE);
+        Pattern linkPattern = Pattern.compile("<a[^>]*href=\"([^\"]+)\"[^>]*>(.+?)</a>",
+            Pattern.CASE_INSENSITIVE);
         Matcher m = linkPattern.matcher(resp.body());
         while (m.find()) {
             String href = m.group(1);
-            String text = m.group(2).trim();
-            // 匹配版本且为 sdist 格式 (.tar.gz)
             if (href.contains(version) && href.endsWith(".tar.gz")) {
-                return href.startsWith("http") ? href : "https://pypi.org" + href;
+                return href.startsWith("http") ? href : index + href;
             }
         }
 
@@ -117,6 +120,28 @@ public class PipResolver {
     private static boolean isNonEmpty(Path dir) {
         try (var s = Files.list(dir)) { return s.findAny().isPresent(); }
         catch (IOException e) { return false; }
+    }
+
+    private static List<String> loadIndices() {
+        String prop = System.getProperty("pip.mirrors");
+        if (prop != null && !prop.isBlank()) {
+            List<String> urls = new ArrayList<>();
+            for (String url : prop.split(",")) {
+                url = url.trim();
+                if (!url.isEmpty()) urls.add(url);
+            }
+            if (!urls.isEmpty()) return List.copyOf(urls);
+        }
+        String env = System.getenv("PIP_MIRRORS");
+        if (env != null && !env.isBlank()) {
+            List<String> urls = new ArrayList<>();
+            for (String url : env.split(",")) {
+                url = url.trim();
+                if (!url.isEmpty()) urls.add(url);
+            }
+            if (!urls.isEmpty()) return List.copyOf(urls);
+        }
+        return List.of(DEFAULT_INDEX);
     }
 
     public static class PipException extends RuntimeException {

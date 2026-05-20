@@ -1,25 +1,25 @@
-package top.codexvn.decompile.mcp.jar;
+package top.codexvn.decompile.mcp.maven;
 
 import java.util.List;
 import java.util.Map;
 import io.modelcontextprotocol.spec.McpSchema;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import top.codexvn.decompile.mcp.jar.decompiler.DecompilerService;
-import top.codexvn.decompile.mcp.jar.resolver.JarResolver;
-import top.codexvn.decompile.mcp.jar.resolver.MavenCoordinate;
-import top.codexvn.decompile.mcp.jar.resolver.ResolutionConfig;
-import top.codexvn.decompile.mcp.jar.resolver.ResolutionResult;
+import top.codexvn.decompile.mcp.maven.decompiler.DecompilerService;
+import top.codexvn.decompile.mcp.maven.resolver.MavenCoordinate;
+import top.codexvn.decompile.mcp.maven.resolver.MavenResolver;
+import top.codexvn.decompile.mcp.maven.resolver.ResolutionConfig;
+import top.codexvn.decompile.mcp.maven.resolver.ResolutionResult;
 import top.codexvn.decompile.mcp.server.I18n;
 
-public class JarReadTool {
+public class MavenReadTool {
 
-    private static final Logger log = LoggerFactory.getLogger(JarReadTool.class);
+    private static final Logger log = LoggerFactory.getLogger(MavenReadTool.class);
 
-    private final JarResolver resolver;
+    private final MavenResolver resolver;
     private final DecompilerService decompiler;
 
-    public JarReadTool(JarResolver resolver, DecompilerService decompiler) {
+    public MavenReadTool(MavenResolver resolver, DecompilerService decompiler) {
         this.resolver = resolver;
         this.decompiler = decompiler;
     }
@@ -29,7 +29,7 @@ public class JarReadTool {
         String opt = I18n.zhEn("(可选) ", "(optional) ");
 
         return McpSchema.Tool.builder()
-            .name("jar_read")
+            .name("maven_read")
             .title(I18n.zhEn("读取并反编译 Maven JAR 中的类",
                              "Read and decompile a class from a Maven JAR"))
             .description(I18n.zhEn(
@@ -146,12 +146,10 @@ public class JarReadTool {
             return successResult(formatted);
 
         } catch (Exception e) {
-            log.error("jar_read failed", e);
+            log.error("maven_read failed", e);
             return errorResult(e.getMessage());
         }
     }
-
-    // --- 共享工具方法（所有工具类共用） ---
 
     static MavenCoordinate extractCoordinate(Map<String, Object> args) {
         String groupId = requireString(args, "group_id");

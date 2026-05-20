@@ -1,38 +1,23 @@
-package top.codexvn.decompile.mcp.jar.decompiler;
+package top.codexvn.decompile.mcp.maven.decompiler;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import top.codexvn.decompile.mcp.server.CacheConfig;
 import java.io.IOException;
-import top.codexvn.decompile.mcp.server.CacheConfig;
 import java.nio.file.FileSystem;
-import top.codexvn.decompile.mcp.server.CacheConfig;
 import java.nio.file.FileSystems;
-import top.codexvn.decompile.mcp.server.CacheConfig;
 import java.nio.file.Files;
-import top.codexvn.decompile.mcp.server.CacheConfig;
 import java.nio.file.Path;
-import top.codexvn.decompile.mcp.server.CacheConfig;
 import java.nio.file.StandardCopyOption;
-import top.codexvn.decompile.mcp.server.CacheConfig;
 import java.security.MessageDigest;
-import top.codexvn.decompile.mcp.server.CacheConfig;
 import java.security.NoSuchAlgorithmException;
-import top.codexvn.decompile.mcp.server.CacheConfig;
 import java.time.Duration;
-import top.codexvn.decompile.mcp.server.CacheConfig;
 import java.util.Collections;
-import top.codexvn.decompile.mcp.server.CacheConfig;
 import java.util.Comparator;
-import top.codexvn.decompile.mcp.server.CacheConfig;
 import java.util.HexFormat;
-import top.codexvn.decompile.mcp.server.CacheConfig;
 import java.util.LinkedHashMap;
-import top.codexvn.decompile.mcp.server.CacheConfig;
 import java.util.List;
-import top.codexvn.decompile.mcp.server.CacheConfig;
 import java.util.Map;
-import top.codexvn.decompile.mcp.server.CacheConfig;
 import java.util.stream.Stream;
 import org.benf.cfr.reader.api.CfrDriver;
 import org.benf.cfr.reader.api.OutputSinkFactory;
@@ -44,16 +29,12 @@ public class DecompilerService {
 
     private static final Logger log = LoggerFactory.getLogger(DecompilerService.class);
 
-    // 磁盘缓存根目录：~/.m2/repository/.decompiled-cache/
     private static final Path DISK_CACHE_ROOT = CacheConfig.decompiled();
 
-    // 内存缓存：最多 50 个 JAR，30 分钟无访问自动淘汰
     private final Cache<String, Map<String, String>> memoryCache = Caffeine.newBuilder()
         .maximumSize(50)
         .expireAfterAccess(Duration.ofMinutes(30))
         .build();
-
-    // --- 向后兼容重载 ---
 
     public Map<String, String> decompileAll(Path jarPath) throws DecompilationException {
         return decompileAll(jarPath, "");
@@ -63,26 +44,21 @@ public class DecompilerService {
         return decompileClass(jarPath, className, "");
     }
 
-    // --- 带命名空间的方法 ---
-
     public Map<String, String> decompileAll(Path jarPath, String cacheNamespace)
         throws DecompilationException {
         String key = cacheKey(jarPath, cacheNamespace);
 
-        // 1. 内存缓存命中 → 直接返回
         Map<String, String> memHit = memoryCache.getIfPresent(key);
         if (memHit != null) {
             return memHit;
         }
 
-        // 2. 磁盘缓存命中 → 加载到内存，返回
         Map<String, String> diskResult = loadDiskCache(jarPath, cacheNamespace);
         if (diskResult != null) {
             memoryCache.put(key, diskResult);
             return diskResult;
         }
 
-        // 3. 缓存未命中 → 执行反编译，同时写磁盘
         try {
             return memoryCache.get(key, k -> {
                 try {
@@ -105,7 +81,6 @@ public class DecompilerService {
         throws DecompilationException {
         String key = cacheKey(jarPath, cacheNamespace);
 
-        // 先查内存和磁盘缓存
         Map<String, String> cached = memoryCache.getIfPresent(key);
         if (cached != null) {
             return cached.get(className);
@@ -117,7 +92,6 @@ public class DecompilerService {
             return diskResult.get(className);
         }
 
-        // 单类提取快速路径：仅反编译目标类，不写磁盘缓存（只有 decompileAll 写）
         Path tempFile = null;
         try {
             tempFile = extractClassFile(jarPath, className);
@@ -133,7 +107,6 @@ public class DecompilerService {
 
             String source = results.get(className);
             if (source != null) {
-                // 将单类结果放入内存缓存，避免后续重复反编译
                 Map<String, String> partial = new LinkedHashMap<>();
                 partial.put(className, source);
                 memoryCache.put(key, Collections.unmodifiableMap(partial));
@@ -150,8 +123,6 @@ public class DecompilerService {
             }
         }
     }
-
-    // --- 反编译引擎 ---
 
     private Map<String, String> doDecompileAll(Path jarPath) throws DecompilationException {
         log.info("Decompiling JAR: {}", jarPath);
@@ -171,14 +142,6 @@ public class DecompilerService {
         return Collections.unmodifiableMap(results);
     }
 
-    // --- 磁盘缓存 ---
-
-    /**
-     * 磁盘缓存布局：
-     * ~/.m2/repository/.decompiled-cache/{sha256前16位}/
-     *   lastModified    — JAR 的修改时间戳，用于校验有效性
-     *   {fqcn}.java     — 反编译后的源码文件
-     */
     private Map<String, String> loadDiskCache(Path jarPath, String namespace) {
         Path cacheDir = diskCacheDir(jarPath, namespace);
         Path metaFile = cacheDir.resolve("lastModified");
@@ -188,7 +151,6 @@ public class DecompilerService {
                 return null;
             }
 
-            // 校验：JAR 修改时间与缓存时的修改时间一致
             long jarMod = Files.getLastModifiedTime(jarPath).toMillis();
             long cachedMod = Long.parseLong(Files.readString(metaFile).trim());
             if (jarMod != cachedMod) {
@@ -197,13 +159,12 @@ public class DecompilerService {
                 return null;
             }
 
-            // 从磁盘加载所有 .java 文件
             Map<String, String> results = new LinkedHashMap<>();
             try (Stream<Path> files = Files.list(cacheDir)) {
                 files.filter(p -> p.toString().endsWith(".java"))
                     .forEach(p -> {
                         String fqcn = p.getFileName().toString();
-                        fqcn = fqcn.substring(0, fqcn.length() - 5); // 去 .java 后缀
+                        fqcn = fqcn.substring(0, fqcn.length() - 5);
                         try {
                             results.put(fqcn, Files.readString(p));
                         } catch (IOException ignored) {}
@@ -239,7 +200,6 @@ public class DecompilerService {
 
     private Path diskCacheDir(Path jarPath, String namespace) {
         String raw = jarPath.toAbsolutePath().toString() + "|" + namespace;
-        // 使用 SHA-256 前 16 位十六进制作为目录名，避免 32 位 hashCode 碰撞
         String hash = sha256Prefix(raw, 16);
         return DISK_CACHE_ROOT.resolve(hash);
     }
@@ -250,7 +210,6 @@ public class DecompilerService {
             byte[] digest = md.digest(input.getBytes(java.nio.charset.StandardCharsets.UTF_8));
             return HexFormat.of().formatHex(digest).substring(0, hexChars);
         } catch (NoSuchAlgorithmException e) {
-            // SHA-256 是 JVM 必须支持的算法，不会发生
             throw new RuntimeException(e);
         }
     }
@@ -266,8 +225,6 @@ public class DecompilerService {
             }
         } catch (IOException ignored) {}
     }
-
-    // --- 源码 JAR 直接读取 ---
 
     public String readSource(Path sourcesJar, String className) {
         String entryName = className.replace('.', '/') + ".java";
@@ -298,8 +255,6 @@ public class DecompilerService {
         log.info("Read {} source files from {}", results.size(), sourcesJar.getFileName());
         return results;
     }
-
-    // --- 内部工具 ---
 
     private static String cacheKey(Path jarPath, String namespace) {
         if (namespace == null || namespace.isEmpty()) {

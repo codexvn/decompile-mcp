@@ -1,4 +1,4 @@
-package top.codexvn.decompile.mcp.jar.resolver;
+package top.codexvn.decompile.mcp.maven.resolver;
 
 import java.nio.file.Path;
 

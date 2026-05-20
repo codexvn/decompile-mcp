@@ -1,4 +1,4 @@
-package top.codexvn.decompile.mcp.jar.resolver;
+package top.codexvn.decompile.mcp.maven.resolver;
 
 public record ResolutionConfig(
     boolean preferSource,
@@ -6,7 +6,5 @@ public record ResolutionConfig(
     String repositoryUrl,
     boolean forceRemote
 ) {
-    // preferSource=true: try sources JAR first; forceDecompile=false: allow sources
-    // repositoryUrl=null: use configured repos; forceRemote=false: use local cache
     public static final ResolutionConfig DEFAULT = new ResolutionConfig(true, false, null, false);
 }

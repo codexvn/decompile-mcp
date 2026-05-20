@@ -7,17 +7,17 @@ import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.server.McpSyncServer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import top.codexvn.decompile.mcp.jar.decompiler.DecompilerService;
+import top.codexvn.decompile.mcp.maven.decompiler.DecompilerService;
+import top.codexvn.decompile.mcp.maven.MavenGlobTool;
+import top.codexvn.decompile.mcp.maven.MavenGrepTool;
+import top.codexvn.decompile.mcp.maven.MavenReadTool;
+import top.codexvn.decompile.mcp.maven.resolver.MavenResolver;
 import top.codexvn.decompile.mcp.npm.NpmGlobTool;
 import top.codexvn.decompile.mcp.npm.NpmGrepTool;
 import top.codexvn.decompile.mcp.npm.NpmReadTool;
 import top.codexvn.decompile.mcp.pip.PipGlobTool;
 import top.codexvn.decompile.mcp.pip.PipGrepTool;
 import top.codexvn.decompile.mcp.pip.PipReadTool;
-import top.codexvn.decompile.mcp.jar.resolver.JarResolver;
-import top.codexvn.decompile.mcp.jar.JarGlobTool;
-import top.codexvn.decompile.mcp.jar.JarGrepTool;
-import top.codexvn.decompile.mcp.jar.JarReadTool;
 
 public class DecompileMcpServer {
 
@@ -28,12 +28,12 @@ public class DecompileMcpServer {
     private final McpSyncServer server;
 
     public DecompileMcpServer(McpStreamableServerTransportProvider transport) {
-        JarResolver resolver = new JarResolver();
+        MavenResolver resolver = new MavenResolver();
         DecompilerService decompiler = new DecompilerService();
 
-        JarReadTool jarRead = new JarReadTool(resolver, decompiler);
-        JarGlobTool jarGlob = new JarGlobTool(resolver);
-        JarGrepTool jarGrep = new JarGrepTool(resolver, decompiler);
+        MavenReadTool mavenRead = new MavenReadTool(resolver, decompiler);
+        MavenGlobTool mavenGlob = new MavenGlobTool(resolver);
+        MavenGrepTool mavenGrep = new MavenGrepTool(resolver, decompiler);
 
         NpmReadTool npmRead = new NpmReadTool();
         NpmGlobTool npmGlob = new NpmGlobTool();
@@ -49,11 +49,11 @@ public class DecompileMcpServer {
             .build();
 
         server.addTool(new McpServerFeatures.SyncToolSpecification(
-            JarReadTool.toolDefinition(), (ex, req) -> jarRead.handle(req.arguments())));
+            MavenReadTool.toolDefinition(), (ex, req) -> mavenRead.handle(req.arguments())));
         server.addTool(new McpServerFeatures.SyncToolSpecification(
-            JarGlobTool.toolDefinition(), (ex, req) -> jarGlob.handle(req.arguments())));
+            MavenGlobTool.toolDefinition(), (ex, req) -> mavenGlob.handle(req.arguments())));
         server.addTool(new McpServerFeatures.SyncToolSpecification(
-            JarGrepTool.toolDefinition(), (ex, req) -> jarGrep.handle(req.arguments())));
+            MavenGrepTool.toolDefinition(), (ex, req) -> mavenGrep.handle(req.arguments())));
 
         server.addTool(new McpServerFeatures.SyncToolSpecification(
             NpmReadTool.toolDefinition(), (ex, req) -> npmRead.handle(req.arguments())));
@@ -69,7 +69,7 @@ public class DecompileMcpServer {
         server.addTool(new McpServerFeatures.SyncToolSpecification(
             PipGrepTool.toolDefinition(), (ex, req) -> pipGrep.handle(req.arguments())));
 
-        log.info("Registered 9 tools: jar/npm/pip × read/glob/grep");
+        log.info("Registered 9 tools: maven/npm/pip × read/glob/grep");
     }
 
     public McpSyncServer getServer() {

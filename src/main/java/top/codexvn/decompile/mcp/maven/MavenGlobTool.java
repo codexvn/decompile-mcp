@@ -1,4 +1,4 @@
-package top.codexvn.decompile.mcp.jar;
+package top.codexvn.decompile.mcp.maven;
 
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
@@ -13,19 +13,19 @@ import java.util.stream.Stream;
 import io.modelcontextprotocol.spec.McpSchema;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import top.codexvn.decompile.mcp.jar.resolver.JarResolver;
-import top.codexvn.decompile.mcp.jar.resolver.MavenCoordinate;
-import top.codexvn.decompile.mcp.jar.resolver.ResolutionConfig;
-import top.codexvn.decompile.mcp.jar.resolver.ResolutionResult;
+import top.codexvn.decompile.mcp.maven.resolver.MavenCoordinate;
+import top.codexvn.decompile.mcp.maven.resolver.MavenResolver;
+import top.codexvn.decompile.mcp.maven.resolver.ResolutionConfig;
+import top.codexvn.decompile.mcp.maven.resolver.ResolutionResult;
 import top.codexvn.decompile.mcp.server.I18n;
 
-public class JarGlobTool {
+public class MavenGlobTool {
 
-    private static final Logger log = LoggerFactory.getLogger(JarGlobTool.class);
+    private static final Logger log = LoggerFactory.getLogger(MavenGlobTool.class);
 
-    private final JarResolver resolver;
+    private final MavenResolver resolver;
 
-    public JarGlobTool(JarResolver resolver) {
+    public MavenGlobTool(MavenResolver resolver) {
         this.resolver = resolver;
     }
 
@@ -34,7 +34,7 @@ public class JarGlobTool {
         String opt = I18n.zhEn("(可选) ", "(optional) ");
 
         return McpSchema.Tool.builder()
-            .name("jar_glob")
+            .name("maven_glob")
             .title(I18n.zhEn("列出 Maven JAR 中匹配 glob 模式的条目",
                              "List entries in a Maven JAR matching a glob pattern"))
             .description(I18n.zhEn(
@@ -103,24 +103,24 @@ public class JarGlobTool {
 
     public McpSchema.CallToolResult handle(Map<String, Object> arguments) {
         try {
-            MavenCoordinate coord = JarReadTool.extractCoordinate(arguments);
-            String pattern = JarReadTool.requireString(arguments, "pattern");
+            MavenCoordinate coord = MavenReadTool.extractCoordinate(arguments);
+            String pattern = MavenReadTool.requireString(arguments, "pattern");
 
-            ResolutionConfig config = JarReadTool.buildConfig(arguments);
+            ResolutionConfig config = MavenReadTool.buildConfig(arguments);
             ResolutionResult result = resolver.resolveWithConfig(coord, config);
 
             List<String> matches = globJar(result.jarPath(), pattern);
             Collections.sort(matches);
 
             if (matches.isEmpty()) {
-                return JarReadTool.successResult("(no entries matched pattern: " + pattern + ")");
+                return MavenReadTool.successResult("(no entries matched pattern: " + pattern + ")");
             }
 
-            return JarReadTool.successResult(String.join("\n", matches));
+            return MavenReadTool.successResult(String.join("\n", matches));
 
         } catch (Exception e) {
-            log.error("jar_glob failed", e);
-            return JarReadTool.errorResult(e.getMessage());
+            log.error("maven_glob failed", e);
+            return MavenReadTool.errorResult(e.getMessage());
         }
     }
 

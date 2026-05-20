@@ -1,4 +1,4 @@
-package top.codexvn.decompile.mcp.jar.resolver;
+package top.codexvn.decompile.mcp.maven.resolver;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -11,8 +11,6 @@ public final class RepositoryConfig {
 
     public record RepositoryEntry(String id, String url) {}
 
-    // 加载优先级：系统属性 > 环境变量 > 默认（Maven Central）。
-    // 系统属性存在时覆盖环境变量，不做合并——属性是显式指定，优先级最高。
     public static List<RepositoryEntry> load() {
         List<RepositoryEntry> repos = new ArrayList<>();
 

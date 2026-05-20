@@ -1,4 +1,4 @@
-package top.codexvn.decompile.mcp.jar;
+package top.codexvn.decompile.mcp.maven;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -8,21 +8,21 @@ import java.util.regex.PatternSyntaxException;
 import io.modelcontextprotocol.spec.McpSchema;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import top.codexvn.decompile.mcp.jar.decompiler.DecompilerService;
-import top.codexvn.decompile.mcp.jar.resolver.JarResolver;
-import top.codexvn.decompile.mcp.jar.resolver.MavenCoordinate;
-import top.codexvn.decompile.mcp.jar.resolver.ResolutionConfig;
-import top.codexvn.decompile.mcp.jar.resolver.ResolutionResult;
+import top.codexvn.decompile.mcp.maven.decompiler.DecompilerService;
+import top.codexvn.decompile.mcp.maven.resolver.MavenCoordinate;
+import top.codexvn.decompile.mcp.maven.resolver.MavenResolver;
+import top.codexvn.decompile.mcp.maven.resolver.ResolutionConfig;
+import top.codexvn.decompile.mcp.maven.resolver.ResolutionResult;
 import top.codexvn.decompile.mcp.server.I18n;
 
-public class JarGrepTool {
+public class MavenGrepTool {
 
-    private static final Logger log = LoggerFactory.getLogger(JarGrepTool.class);
+    private static final Logger log = LoggerFactory.getLogger(MavenGrepTool.class);
 
-    private final JarResolver resolver;
+    private final MavenResolver resolver;
     private final DecompilerService decompiler;
 
-    public JarGrepTool(JarResolver resolver, DecompilerService decompiler) {
+    public MavenGrepTool(MavenResolver resolver, DecompilerService decompiler) {
         this.resolver = resolver;
         this.decompiler = decompiler;
     }
@@ -32,9 +32,9 @@ public class JarGrepTool {
         String opt = I18n.zhEn("(可选) ", "(optional) ");
 
         return McpSchema.Tool.builder()
-            .name("jar_grep")
-            .title(I18n.zhEn("在反编译的 JAR 类中搜索正则表达式",
-                             "Search for a regex pattern in decompiled JAR classes"))
+            .name("maven_grep")
+            .title(I18n.zhEn("在反编译的 Maven JAR 类中搜索正则表达式",
+                             "Search for a regex pattern in decompiled Maven JAR classes"))
             .description(I18n.zhEn(
                 "在 Maven JAR 的所有反编译类中搜索正则表达式。返回格式：类名:行号:匹配行。",
                 "Search for a regular expression across all decompiled classes in a Maven JAR. "
@@ -101,17 +101,17 @@ public class JarGrepTool {
 
     public McpSchema.CallToolResult handle(Map<String, Object> arguments) {
         try {
-            MavenCoordinate coord = JarReadTool.extractCoordinate(arguments);
-            String regex = JarReadTool.requireString(arguments, "pattern");
+            MavenCoordinate coord = MavenReadTool.extractCoordinate(arguments);
+            String regex = MavenReadTool.requireString(arguments, "pattern");
 
             Pattern pattern;
             try {
                 pattern = Pattern.compile(regex);
             } catch (PatternSyntaxException e) {
-                return JarReadTool.errorResult("Invalid regex pattern: " + e.getMessage());
+                return MavenReadTool.errorResult("Invalid regex pattern: " + e.getMessage());
             }
 
-            ResolutionConfig config = JarReadTool.buildConfig(arguments);
+            ResolutionConfig config = MavenReadTool.buildConfig(arguments);
             ResolutionResult result = resolver.resolveWithConfig(coord, config);
 
             Map<String, String> sources;
@@ -136,15 +136,15 @@ public class JarGrepTool {
             }
 
             if (matches.isEmpty()) {
-                return JarReadTool.successResult(
+                return MavenReadTool.successResult(
                     "(no matches found for pattern: " + regex + ")");
             }
 
-            return JarReadTool.successResult(String.join("\n", matches));
+            return MavenReadTool.successResult(String.join("\n", matches));
 
         } catch (Exception e) {
-            log.error("jar_grep failed", e);
-            return JarReadTool.errorResult(e.getMessage());
+            log.error("maven_grep failed", e);
+            return MavenReadTool.errorResult(e.getMessage());
         }
     }
 }
