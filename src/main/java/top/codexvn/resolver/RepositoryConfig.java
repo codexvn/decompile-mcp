@@ -11,7 +11,8 @@ public final class RepositoryConfig {
 
     public record RepositoryEntry(String id, String url) {}
 
-    // 加载优先级：系统属性 > 环境变量 > 默认（Maven Central）
+    // 加载优先级：系统属性 > 环境变量 > 默认（Maven Central）。
+    // 系统属性存在时覆盖环境变量，不做合并——属性是显式指定，优先级最高。
     public static List<RepositoryEntry> load() {
         List<RepositoryEntry> repos = new ArrayList<>();
 
@@ -20,19 +21,18 @@ public final class RepositoryConfig {
             for (String url : prop.split(",")) {
                 url = url.trim();
                 if (!url.isEmpty()) {
-                    repos.add(new RepositoryEntry("repo-" + Integer.toHexString(url.hashCode()), url));
+                    repos.add(new RepositoryEntry(
+                        "repo-" + Integer.toHexString(url.hashCode()), url));
                 }
             }
-        }
-
-        String env = System.getenv("M2_REPOSITORIES");
-        if (env != null && !env.isBlank()) {
-            for (String url : env.split(",")) {
-                url = url.trim();
-                if (!url.isEmpty()) {
-                    String id = "repo-" + Integer.toHexString(url.hashCode());
-                    if (repos.stream().noneMatch(r -> r.id().equals(id))) {
-                        repos.add(new RepositoryEntry(id, url));
+        } else {
+            String env = System.getenv("M2_REPOSITORIES");
+            if (env != null && !env.isBlank()) {
+                for (String url : env.split(",")) {
+                    url = url.trim();
+                    if (!url.isEmpty()) {
+                        repos.add(new RepositoryEntry(
+                            "repo-" + Integer.toHexString(url.hashCode()), url));
                     }
                 }
             }

@@ -5,6 +5,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import org.eclipse.aether.DefaultRepositorySystemSession;
 import org.eclipse.aether.RepositorySystem;
 import org.eclipse.aether.RepositorySystemSession;
@@ -25,6 +27,8 @@ public class JarResolver {
     private final RepositorySystem system;
     private final RepositorySystemSession session;
     private final List<RemoteRepository> repositories;
+    // 所有 forceRemote 创建的临时目录，JVM 关闭时统一清理
+    private final Set<Path> tempDirs = ConcurrentHashMap.newKeySet();
 
     public JarResolver() {
         this.localRepoDir = resolveLocalRepoPath();
@@ -42,9 +46,16 @@ public class JarResolver {
             .toList();
         log.info("JarResolver initialized, local: {}, repos: {}",
             localRepoDir, repositories.stream().map(RemoteRepository::getUrl).toList());
+
+        // 注册唯一关闭钩子，清理所有临时目录
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            for (Path dir : tempDirs) {
+                cleanupDir(dir);
+            }
+        }));
     }
 
-    // --- 向后兼容入口 ---
+    // --- 向后兼容入口（保留供外部直接调用） ---
 
     public Path resolve(MavenCoordinate coord) throws JarResolutionException {
         return resolveWithConfig(coord, ResolutionConfig.DEFAULT).jarPath();
@@ -69,6 +80,8 @@ public class JarResolver {
             cacheNamespace = "repo-" + Integer.toHexString(url.hashCode());
         } else {
             reposToUse = this.repositories;
+            // 默认仓库使用空串命名空间。空串使缓存键退化为纯 jarPath，
+            // 与增强前的旧版缓存行为一致，确保已缓存数据继续生效。
             cacheNamespace = "";
         }
 
@@ -115,13 +128,16 @@ public class JarResolver {
             request.setArtifact(new DefaultArtifact(sourceCoord));
             repos.forEach(request::addRepository);
 
-            RepositorySystemSession s = skipLocal ? createTempSession() : this.session;
-
-            ArtifactResult result = system.resolveArtifact(s, request);
+            // sources JAR 下载到默认本地仓库，避免临时目录泄漏。
+            // skipLocal 仅跳过本地存在性检查，不影响下载目标的存储位置。
+            ArtifactResult result = system.resolveArtifact(session, request);
             if (result.isResolved() && !result.isMissing()) {
-                return result.getArtifact().getFile().toPath();
+                var artifactFile = result.getArtifact().getFile();
+                return artifactFile != null ? artifactFile.toPath() : null;
             }
         } catch (Exception e) {
+            // 源码 JAR 不可用是预期行为——多数 Maven 构件不发布 -sources.jar。
+            // 静默吞异常，回退到主 JAR + CFR 反编译路径。
             log.debug("Sources JAR not found for {}: {}", coord, e.getMessage());
         }
         return null;
@@ -175,7 +191,11 @@ public class JarResolver {
         }
 
         try {
-            DefaultRepositorySystemSession tempSession = createTempSessionWithRepo(tempRepoDir);
+            DefaultRepositorySystemSession tempSession =
+                new DefaultRepositorySystemSession();
+            tempSession.setLocalRepositoryManager(
+                system.newLocalRepositoryManager(tempSession,
+                    new LocalRepository(tempRepoDir.toFile())));
 
             ArtifactRequest request = new ArtifactRequest();
             request.setArtifact(new DefaultArtifact(coord.toAetherCoordinate()));
@@ -183,50 +203,30 @@ public class JarResolver {
 
             ArtifactResult result = system.resolveArtifact(tempSession, request);
             if (result.isMissing() || !result.isResolved()) {
+                cleanupDir(tempRepoDir);
                 throw new JarResolutionException("Artifact not found: " + coord);
             }
 
             Path resolvedPath = result.getArtifact().getFile().toPath();
             log.info("Force-downloaded: {}", resolvedPath);
-            registerTempCleanup(tempRepoDir);
+            tempDirs.add(tempRepoDir);
             return resolvedPath;
         } catch (JarResolutionException e) {
-            cleanupTempDir(tempRepoDir);
+            cleanupDir(tempRepoDir);
             throw e;
         } catch (Exception e) {
-            cleanupTempDir(tempRepoDir);
+            cleanupDir(tempRepoDir);
             throw new JarResolutionException(
                 "Failed to resolve artifact from remote: " + coord + " - " + e.getMessage(), e);
         }
     }
 
-    // --- 会话工具方法 ---
-
-    private DefaultRepositorySystemSession createTempSession() {
-        try {
-            return createTempSessionWithRepo(Files.createTempDirectory("mcp-tmp-"));
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to create temp directory", e);
-        }
-    }
-
-    private DefaultRepositorySystemSession createTempSessionWithRepo(Path tempRepoDir) {
-        DefaultRepositorySystemSession s = new DefaultRepositorySystemSession();
-        s.setLocalRepositoryManager(
-            system.newLocalRepositoryManager(s, new LocalRepository(tempRepoDir.toFile())));
-        return s;
-    }
-
     // --- 清理 ---
 
-    private void registerTempCleanup(Path tempDir) {
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> cleanupTempDir(tempDir)));
-    }
-
-    private void cleanupTempDir(Path tempDir) {
+    private static void cleanupDir(Path dir) {
         try {
-            if (Files.exists(tempDir)) {
-                try (var stream = Files.walk(tempDir)) {
+            if (Files.exists(dir)) {
+                try (var stream = Files.walk(dir)) {
                     stream.sorted(Comparator.reverseOrder()).forEach(p -> {
                         try {
                             Files.deleteIfExists(p);

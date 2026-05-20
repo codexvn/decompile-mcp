@@ -98,6 +98,9 @@ public class JarReadTool {
             if (offset < 1) {
                 return errorResult("offset must be >= 1, got: " + offset);
             }
+            if (limit != null && limit <= 0) {
+                return errorResult("limit must be > 0, got: " + limit);
+            }
 
             ResolutionConfig config = buildConfig(arguments);
             ResolutionResult result = resolver.resolveWithConfig(coord, config);
@@ -106,7 +109,7 @@ public class JarReadTool {
             if (result.isSourceJar()) {
                 source = decompiler.readSource(result.jarPath(), className);
                 if (source == null) {
-                    return errorResult("Class not found in sources JAR: " + className);
+                    return errorResult("Class not found in " + coord + ": " + className);
                 }
             } else {
                 source = decompiler.decompileClass(

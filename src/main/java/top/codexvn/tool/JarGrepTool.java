@@ -1,7 +1,6 @@
 package top.codexvn.tool;
 
 import java.io.IOException;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -109,7 +108,10 @@ public class JarGrepTool {
             List<String> matches = new ArrayList<>();
             for (Map.Entry<String, String> entry : sources.entrySet()) {
                 String className = entry.getKey();
-                String[] lines = entry.getValue().split("\n", -1);
+                // 标准化行尾符，避免 Windows \r\n 导致匹配行末尾携带 \r
+                String source = entry.getValue()
+                    .replace("\r\n", "\n").replace('\r', '\n');
+                String[] lines = source.split("\n", -1);
                 for (int i = 0; i < lines.length; i++) {
                     if (pattern.matcher(lines[i]).find()) {
                         matches.add(className + ":" + (i + 1) + ":" + lines[i]);
@@ -124,9 +126,6 @@ public class JarGrepTool {
 
             return JarReadTool.successResult(String.join("\n", matches));
 
-        } catch (IOException e) {
-            log.error("jar_grep failed", e);
-            return JarReadTool.errorResult(e.getMessage());
         } catch (Exception e) {
             log.error("jar_grep failed", e);
             return JarReadTool.errorResult(e.getMessage());
