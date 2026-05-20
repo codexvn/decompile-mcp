@@ -1,5 +1,6 @@
 package top.codexvn.tool;
 
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -12,6 +13,8 @@ import org.slf4j.LoggerFactory;
 import top.codexvn.decompiler.DecompilerService;
 import top.codexvn.resolver.JarResolver;
 import top.codexvn.resolver.MavenCoordinate;
+import top.codexvn.resolver.ResolutionConfig;
+import top.codexvn.resolver.ResolutionResult;
 
 public class JarGrepTool {
 
@@ -52,6 +55,24 @@ public class JarGrepTool {
                     "pattern", Map.of(
                         "type", "string",
                         "description", "Regular expression pattern to search for in decompiled source"
+                    ),
+                    "prefer_source", Map.of(
+                        "type", "boolean",
+                        "description", "Prefer searching sources JAR when available. Default: true."
+                    ),
+                    "force_decompile", Map.of(
+                        "type", "boolean",
+                        "description", "Always decompile and search .class files, "
+                            + "even if sources JAR is available. Default: false."
+                    ),
+                    "repository_url", Map.of(
+                        "type", "string",
+                        "description", "Specific Maven repository URL to resolve from. "
+                            + "Example: 'https://maven.aliyun.com/repository/public'"
+                    ),
+                    "force_remote", Map.of(
+                        "type", "boolean",
+                        "description", "Download directly from remote, bypass local cache. Default: false."
                     )
                 ),
                 List.of("group_id", "artifact_id", "version", "pattern"),
@@ -74,8 +95,16 @@ public class JarGrepTool {
                 return JarReadTool.errorResult("Invalid regex pattern: " + e.getMessage());
             }
 
-            Path jarPath = resolver.resolve(coord);
-            Map<String, String> sources = decompiler.decompileAll(jarPath);
+            ResolutionConfig config = JarReadTool.buildConfig(arguments);
+            ResolutionResult result = resolver.resolveWithConfig(coord, config);
+
+            Map<String, String> sources;
+            if (result.isSourceJar()) {
+                sources = decompiler.readAllSources(result.jarPath());
+            } else {
+                sources = decompiler.decompileAll(
+                    result.jarPath(), result.cacheNamespace());
+            }
 
             List<String> matches = new ArrayList<>();
             for (Map.Entry<String, String> entry : sources.entrySet()) {
@@ -95,6 +124,9 @@ public class JarGrepTool {
 
             return JarReadTool.successResult(String.join("\n", matches));
 
+        } catch (IOException e) {
+            log.error("jar_grep failed", e);
+            return JarReadTool.errorResult(e.getMessage());
         } catch (Exception e) {
             log.error("jar_grep failed", e);
             return JarReadTool.errorResult(e.getMessage());

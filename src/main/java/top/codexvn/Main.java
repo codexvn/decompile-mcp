@@ -28,11 +28,10 @@ public class Main {
 
             log.info("Server ready, waiting for requests on stdin...");
 
-            // Keep the main thread alive. The transport handles MCP protocol
-            // on stdin/stdout in its own threads. On SIGTERM/SIGINT, the JVM
-            // runs the shutdown hook for graceful cleanup.
-            // Note: join() on the current thread blocks forever but does not
-            // prevent JVM shutdown — the shutdown hook runs and the JVM halts.
+            // 阻塞主线程保持 JVM 存活。MCP 协议传输在后台线程中处理
+            // stdin/stdout 的读写。收到 SIGTERM/SIGINT 时，JVM 会先执行
+            // 关闭钩子（调用 server.closeGracefully()）再退出。
+            // join() 阻塞当前线程但不会阻止 JVM 关闭——关闭钩子仍然会执行。
             Thread.currentThread().join();
 
         } catch (InterruptedException e) {

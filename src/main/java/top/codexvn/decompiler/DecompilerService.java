@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.stream.Stream;
 import org.benf.cfr.reader.api.CfrDriver;
 import org.benf.cfr.reader.api.OutputSinkFactory;
 import org.benf.cfr.reader.api.SinkReturns;
@@ -22,29 +23,41 @@ public class DecompilerService {
 
     private static final Logger log = LoggerFactory.getLogger(DecompilerService.class);
 
-    private final ConcurrentMap<Path, Map<String, String>> cache = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, Map<String, String>> cache = new ConcurrentHashMap<>();
+
+    // --- 向后兼容重载（无命名空间参数） ---
 
     public Map<String, String> decompileAll(Path jarPath) throws DecompilationException {
-        Map<String, String> cached = cache.get(jarPath);
+        return decompileAll(jarPath, "");
+    }
+
+    public String decompileClass(Path jarPath, String className) throws DecompilationException {
+        return decompileClass(jarPath, className, "");
+    }
+
+    // --- 带命名空间的方法 ---
+
+    public Map<String, String> decompileAll(Path jarPath, String cacheNamespace)
+        throws DecompilationException {
+        String key = cacheKey(jarPath, cacheNamespace);
+        Map<String, String> cached = cache.get(key);
         if (cached != null) {
-            log.debug("Cache hit for {}", jarPath);
+            log.debug("Cache hit for {}", key);
             return cached;
         }
 
         log.info("Decompiling JAR: {}", jarPath);
         Map<String, String> results = Collections.synchronizedMap(new LinkedHashMap<>());
 
-        OutputSinkFactory sinkFactory = createSinkFactory(results);
-
         try {
             CfrDriver driver = new CfrDriver.Builder()
-                .withOutputSink(sinkFactory)
+                .withOutputSink(createSinkFactory(results))
                 .build();
 
             driver.analyse(List.of(jarPath.toString()));
 
             Map<String, String> unmodifiable = Collections.unmodifiableMap(results);
-            cache.put(jarPath, unmodifiable);
+            cache.put(key, unmodifiable);
             log.info("Decompiled {} classes from {}", results.size(), jarPath.getFileName());
             return unmodifiable;
         } catch (Exception e) {
@@ -53,14 +66,17 @@ public class DecompilerService {
         }
     }
 
-    public String decompileClass(Path jarPath, String className) throws DecompilationException {
-        // Check cache first
-        Map<String, String> cached = cache.get(jarPath);
+    public String decompileClass(Path jarPath, String className, String cacheNamespace)
+        throws DecompilationException {
+        String key = cacheKey(jarPath, cacheNamespace);
+        Map<String, String> cached = cache.get(key);
         if (cached != null) {
             return cached.get(className);
         }
 
-        // Fast path: extract single class and decompile just that file
+        // 单类提取：将 .class 条目复制到临时文件，仅反编译该文件。
+        // 避免全量反编译（如 Guava 约需 10 秒），单类提取 <1 秒。
+        // jar_grep 需要遍历所有类，走 decompileAll 路径。
         Path tempFile = null;
         try {
             tempFile = extractClassFile(jarPath, className);
@@ -69,17 +85,15 @@ public class DecompilerService {
             }
 
             Map<String, String> results = Collections.synchronizedMap(new LinkedHashMap<>());
-            OutputSinkFactory sinkFactory = createSinkFactory(results);
 
             CfrDriver driver = new CfrDriver.Builder()
-                .withOutputSink(sinkFactory)
+                .withOutputSink(createSinkFactory(results))
                 .build();
 
             driver.analyse(List.of(tempFile.toString()));
 
             log.debug("Decompiled single class: {}", className);
             return results.get(className);
-
         } catch (Exception e) {
             throw new DecompilationException(
                 "CFR decompilation failed for " + className + " in " + jarPath + ": "
@@ -94,9 +108,53 @@ public class DecompilerService {
         }
     }
 
-    /**
-     * Extracts a single .class file from a JAR to a temporary file.
-     */
+    // --- 源码 JAR 直接读取（无需反编译） ---
+
+    public String readSource(Path sourcesJar, String className) {
+        String entryName = className.replace('.', '/') + ".java";
+        try (FileSystem fs = FileSystems.newFileSystem(sourcesJar, (ClassLoader) null)) {
+            Path sourceEntry = fs.getPath("/", entryName);
+            if (!Files.exists(sourceEntry)) {
+                return null;
+            }
+            return Files.readString(sourceEntry);
+        } catch (IOException e) {
+            log.warn("Failed to read source from {}: {}", sourcesJar.getFileName(), e.getMessage());
+            return null;
+        }
+    }
+
+    public Map<String, String> readAllSources(Path sourcesJar) throws IOException {
+        Map<String, String> results = new LinkedHashMap<>();
+        try (FileSystem fs = FileSystems.newFileSystem(sourcesJar, (ClassLoader) null)) {
+            Path root = fs.getPath("/");
+            try (Stream<Path> walk = Files.walk(root)) {
+                walk.filter(p -> p.toString().endsWith(".java"))
+                    .forEach(p -> {
+                        String entryPath = p.toString();
+                        String fqcn = entryPath.substring(1)
+                            .replace('/', '.')
+                            .replace(".java", "");
+                        try {
+                            results.put(fqcn, Files.readString(p));
+                        } catch (IOException ignored) {
+                        }
+                    });
+            }
+        }
+        log.info("Read {} source files from {}", results.size(), sourcesJar.getFileName());
+        return results;
+    }
+
+    // --- 内部工具方法 ---
+
+    private static String cacheKey(Path jarPath, String namespace) {
+        if (namespace == null || namespace.isEmpty()) {
+            return jarPath.toString();
+        }
+        return jarPath.toString() + "|" + namespace;
+    }
+
     private Path extractClassFile(Path jarPath, String className) throws IOException {
         String entryName = className.replace('.', '/') + ".class";
 

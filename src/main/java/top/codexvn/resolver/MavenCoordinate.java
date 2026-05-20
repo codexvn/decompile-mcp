@@ -32,6 +32,18 @@ public record MavenCoordinate(String groupId, String artifactId, String version)
         return groupId + ":" + artifactId + ":jar:" + version;
     }
 
+    public String toSourceJarFilename() {
+        return artifactId + "-" + version + "-sources.jar";
+    }
+
+    public Path toSourceLocalPath(Path localRepoDir) {
+        return localRepoDir.resolve(toRepoPath()).resolve(toSourceJarFilename());
+    }
+
+    public String toAetherSourceCoordinate() {
+        return groupId + ":" + artifactId + ":jar:sources:" + version;
+    }
+
     @Override
     public String toString() {
         return groupId + ":" + artifactId + ":" + version;

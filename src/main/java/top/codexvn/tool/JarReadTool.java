@@ -1,6 +1,5 @@
 package top.codexvn.tool;
 
-import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import io.modelcontextprotocol.spec.McpSchema;
@@ -9,6 +8,8 @@ import org.slf4j.LoggerFactory;
 import top.codexvn.decompiler.DecompilerService;
 import top.codexvn.resolver.JarResolver;
 import top.codexvn.resolver.MavenCoordinate;
+import top.codexvn.resolver.ResolutionConfig;
+import top.codexvn.resolver.ResolutionResult;
 
 public class JarReadTool {
 
@@ -55,6 +56,27 @@ public class JarReadTool {
                     "limit", Map.of(
                         "type", "integer",
                         "description", "Maximum number of lines to return (default: unlimited)"
+                    ),
+                    "prefer_source", Map.of(
+                        "type", "boolean",
+                        "description", "Prefer reading from -sources.jar when available. "
+                            + "Sources JARs contain original .java files with comments. Default: true."
+                    ),
+                    "force_decompile", Map.of(
+                        "type", "boolean",
+                        "description", "Always decompile from .class files, "
+                            + "even if a sources JAR is available. Default: false."
+                    ),
+                    "repository_url", Map.of(
+                        "type", "string",
+                        "description", "Specific Maven repository URL to resolve from. "
+                            + "Overrides configured repository priority list. "
+                            + "Example: 'https://maven.aliyun.com/repository/public'"
+                    ),
+                    "force_remote", Map.of(
+                        "type", "boolean",
+                        "description", "Download directly from remote to a temp location, "
+                            + "completely bypassing the local Maven cache. Default: false."
                     )
                 ),
                 List.of("group_id", "artifact_id", "version", "class_name"),
@@ -77,11 +99,21 @@ public class JarReadTool {
                 return errorResult("offset must be >= 1, got: " + offset);
             }
 
-            Path jarPath = resolver.resolve(coord);
-            String source = decompiler.decompileClass(jarPath, className);
+            ResolutionConfig config = buildConfig(arguments);
+            ResolutionResult result = resolver.resolveWithConfig(coord, config);
 
-            if (source == null) {
-                return errorResult("Class not found in " + coord + ": " + className);
+            String source;
+            if (result.isSourceJar()) {
+                source = decompiler.readSource(result.jarPath(), className);
+                if (source == null) {
+                    return errorResult("Class not found in sources JAR: " + className);
+                }
+            } else {
+                source = decompiler.decompileClass(
+                    result.jarPath(), className, result.cacheNamespace());
+                if (source == null) {
+                    return errorResult("Class not found in " + coord + ": " + className);
+                }
             }
 
             String formatted = formatWithLineNumbers(source, offset, limit);
@@ -93,7 +125,7 @@ public class JarReadTool {
         }
     }
 
-    // --- Shared helpers (used by all tool classes) ---
+    // --- 共享工具方法（所有工具类共用） ---
 
     static MavenCoordinate extractCoordinate(Map<String, Object> args) {
         String groupId = requireString(args, "group_id");
@@ -125,6 +157,32 @@ public class JarReadTool {
         }
     }
 
+    static boolean getBooleanOrDefault(Map<String, Object> args,
+                                        String key, boolean defaultVal) {
+        Object val = args.get(key);
+        if (val == null) {
+            return defaultVal;
+        }
+        if (val instanceof Boolean b) {
+            return b;
+        }
+        return Boolean.parseBoolean(val.toString());
+    }
+
+    static String getStringOrNull(Map<String, Object> args, String key) {
+        Object val = args.get(key);
+        return val != null ? val.toString() : null;
+    }
+
+    static ResolutionConfig buildConfig(Map<String, Object> args) {
+        return new ResolutionConfig(
+            getBooleanOrDefault(args, "prefer_source", true),
+            getBooleanOrDefault(args, "force_decompile", false),
+            getStringOrNull(args, "repository_url"),
+            getBooleanOrDefault(args, "force_remote", false)
+        );
+    }
+
     static McpSchema.CallToolResult successResult(String text) {
         return McpSchema.CallToolResult.builder()
             .content(List.of(new McpSchema.TextContent(text)))
@@ -139,7 +197,6 @@ public class JarReadTool {
     }
 
     private String formatWithLineNumbers(String source, int startLine, Integer maxLines) {
-        // Normalize line endings to \n regardless of platform
         String normalized = source.replace("\r\n", "\n").replace('\r', '\n');
         String[] lines = normalized.split("\n", -1);
         StringBuilder sb = new StringBuilder();

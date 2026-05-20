@@ -15,6 +15,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import top.codexvn.resolver.JarResolver;
 import top.codexvn.resolver.MavenCoordinate;
+import top.codexvn.resolver.ResolutionConfig;
+import top.codexvn.resolver.ResolutionResult;
 
 public class JarGlobTool {
 
@@ -50,7 +52,24 @@ public class JarGlobTool {
                     ),
                     "pattern", Map.of(
                         "type", "string",
-                        "description", "Glob pattern to match against JAR entry paths, e.g. '**/*Service*.class'"
+                        "description", "Glob pattern, e.g. '**/*Service*.class'"
+                    ),
+                    "prefer_source", Map.of(
+                        "type", "boolean",
+                        "description", "Prefer listing from -sources.jar when available. Default: true."
+                    ),
+                    "force_decompile", Map.of(
+                        "type", "boolean",
+                        "description", "Always use the main JAR, even if sources JAR is available. Default: false."
+                    ),
+                    "repository_url", Map.of(
+                        "type", "string",
+                        "description", "Specific Maven repository URL to resolve from. "
+                            + "Example: 'https://maven.aliyun.com/repository/public'"
+                    ),
+                    "force_remote", Map.of(
+                        "type", "boolean",
+                        "description", "Download directly from remote, bypass local cache. Default: false."
                     )
                 ),
                 List.of("group_id", "artifact_id", "version", "pattern"),
@@ -66,8 +85,10 @@ public class JarGlobTool {
             MavenCoordinate coord = JarReadTool.extractCoordinate(arguments);
             String pattern = JarReadTool.requireString(arguments, "pattern");
 
-            Path jarPath = resolver.resolve(coord);
-            List<String> matches = globJar(jarPath, pattern);
+            ResolutionConfig config = JarReadTool.buildConfig(arguments);
+            ResolutionResult result = resolver.resolveWithConfig(coord, config);
+
+            List<String> matches = globJar(result.jarPath(), pattern);
             Collections.sort(matches);
 
             if (matches.isEmpty()) {

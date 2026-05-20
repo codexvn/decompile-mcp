@@ -1,0 +1,16 @@
+services:
+  jar-decompile-mcp:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: jar-decompile-mcp:latest
+    container_name: jar-decompile-mcp
+    volumes:
+      # 挂载本地 Maven 仓库，避免每次启动重新下载依赖
+      - ${HOME}/.m2/repository:/maven-repo
+    environment:
+      # 可选：配置镜像仓库列表（最高优先级）
+      # - maven.repositories=https://nexus.company.com/repository/maven-public,https://maven.aliyun.com/repository/public
+      - M2_REPOSITORIES=${M2_REPOSITORIES:-}
+    stdin_open: true
+    restart: "no"
