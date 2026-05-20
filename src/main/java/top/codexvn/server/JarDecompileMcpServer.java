@@ -1,7 +1,7 @@
 package top.codexvn.server;
 
 import io.modelcontextprotocol.spec.McpSchema;
-import io.modelcontextprotocol.spec.McpServerTransportProvider;
+import io.modelcontextprotocol.spec.McpStreamableServerTransportProvider;
 import io.modelcontextprotocol.server.McpServer;
 import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.server.McpSyncServer;
@@ -23,7 +23,7 @@ public class JarDecompileMcpServer {
     private final JarResolver resolver;
     private final DecompilerService decompiler;
 
-    public JarDecompileMcpServer(McpServerTransportProvider transport) {
+    public JarDecompileMcpServer(McpStreamableServerTransportProvider transport) {
         this.resolver = new JarResolver();
         this.decompiler = new DecompilerService();
 

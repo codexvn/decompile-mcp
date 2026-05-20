@@ -18,24 +18,24 @@ public final class NetworkConfig {
     private NetworkConfig() {}
 
     /**
-     * 打印所有可用 IP 对应的 SSE 端点和 MCP 客户端配置。
+     * 打印所有可用 IP 对应的 MCP 端点和客户端配置。
      */
     public static void print(int port) {
         Set<String> ips = enumerateAddresses();
 
         for (String ip : ips) {
-            String url = "http://" + ip + ":" + port + "/sse";
-            log.info("  SSE 端点: {}", url);
+            String url = "http://" + ip + ":" + port + "/mcp";
+            log.info("  MCP 端点: {}", url);
         }
 
         if (!ips.isEmpty()) {
-            String defaultUrl = "http://" + ips.iterator().next() + ":" + port + "/sse";
+            String defaultUrl = "http://" + ips.iterator().next() + ":" + port + "/mcp";
             String json = "{\"mcpServers\":{\"jar-decompile\":{\"url\":\"" + defaultUrl + "\"}}}";
             log.info("  可直接导入的 MCP 客户端配置: {}", json);
         }
 
         // 始终打印 localhost
-        log.info("  本地访问: http://localhost:{}/sse", port);
+        log.info("  本地访问: http://localhost:{}/mcp", port);
     }
 
     /**

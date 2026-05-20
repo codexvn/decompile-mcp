@@ -1,7 +1,7 @@
 package top.codexvn.server;
 
 import io.modelcontextprotocol.json.jackson3.JacksonMcpJsonMapper;
-import io.modelcontextprotocol.server.transport.HttpServletSseServerTransportProvider;
+import io.modelcontextprotocol.server.transport.HttpServletStreamableServerTransportProvider;
 import java.time.Duration;
 import org.apache.catalina.Context;
 import org.apache.catalina.Wrapper;
@@ -27,17 +27,14 @@ public class SseServer {
         this.port = port;
         this.host = host;
 
-        // SSE 传输提供者——它本身就是一个 Servlet。
-        // 不设置 baseUrl，让 SDK 从请求的 Host 头自动推导，避免
-        // 因 bind 0.0.0.0 与实际连接 IP 不一致导致 origin mismatch。
-        var transport = HttpServletSseServerTransportProvider.builder()
+        // Streamable HTTP 传输（MCP 2024-11-05 规范），单端点 /mcp
+        var transport = HttpServletStreamableServerTransportProvider.builder()
             .jsonMapper(new JacksonMcpJsonMapper(new JsonMapper()))
-            .messageEndpoint("/message")
-            .sseEndpoint("/sse")
+            .mcpEndpoint("/mcp")
             .keepAliveInterval(Duration.ofSeconds(30))
             .build();
 
-        // 基于 SSE 传输构建 MCP 服务器
+        // 基于 Streamable HTTP 传输构建 MCP 服务器
         this.mcpServer = new JarDecompileMcpServer(transport);
 
         // 组装嵌入式 Tomcat
@@ -61,19 +58,18 @@ public class SseServer {
         log.info("  绑定地址: {}:{}", host, port);
         log.info("========================================");
 
-        // 打印网卡 IP 及可直接导入的 MCP 客户端配置
         NetworkConfig.print(port);
 
         tomcat.start();
-        log.info("SSE server started, accepting connections");
+        log.info("MCP server started (streamable HTTP), accepting connections");
         tomcat.getServer().await();
     }
 
     public void stop() throws Exception {
-        log.info("Stopping SSE server...");
+        log.info("Stopping MCP server...");
         mcpServer.getServer().closeGracefully();
         tomcat.stop();
-        log.info("SSE server stopped");
+        log.info("MCP server stopped");
     }
 
     private static int defaultPort() {
