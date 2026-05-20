@@ -33,7 +33,7 @@ public class PipResolver {
     public PipResolver() {
         try { Files.createDirectories(CACHE_DIR); } catch (IOException ignored) {}
         this.indices = loadIndices();
-        log.info("PipResolver initialized, indices: {}", indices);
+        log.info("PipResolver initialized, cache: {}, mirrors: {}", CACHE_DIR, indices);
     }
 
     public Path resolve(String packageName, String version) throws PipException {
@@ -51,18 +51,29 @@ public class PipResolver {
                 log.info("Downloading pip package: {}=={} from {}", packageName, version, index);
 
                 Path tgzFile = Files.createTempFile("pip-", ".tar.gz");
-                HttpRequest req = HttpRequest.newBuilder(URI.create(downloadUrl)).build();
-                HttpResponse<InputStream> resp = HTTP.send(req, HttpResponse.BodyHandlers.ofInputStream());
-                try (InputStream in = resp.body()) {
-                    Files.copy(in, tgzFile);
+                try {
+                    HttpRequest req = HttpRequest.newBuilder(URI.create(downloadUrl)).build();
+                    HttpResponse<InputStream> resp = HTTP.send(req, HttpResponse.BodyHandlers.ofInputStream());
+                    if (resp.statusCode() != 200) {
+                        throw new PipException("download returned " + resp.statusCode());
+                    }
+                    try (InputStream in = resp.body()) {
+                        Files.copy(in, tgzFile, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                    }
+
+                    Path extracted = CACHE_DIR.resolve(packageName + "-" + version);
+                    extractTarGz(tgzFile, extracted);
+                    Files.deleteIfExists(tgzFile);
+
+                    log.info("Extracted pip package to: {}", extracted);
+                    return extracted;
+                } catch (PipException e) {
+                    Files.deleteIfExists(tgzFile);
+                    throw e;
+                } catch (Exception e) {
+                    Files.deleteIfExists(tgzFile);
+                    throw new PipException(e.getMessage(), e);
                 }
-
-                Path extracted = CACHE_DIR.resolve(packageName + "-" + version);
-                extractTarGz(tgzFile, extracted);
-                Files.deleteIfExists(tgzFile);
-
-                log.info("Extracted pip package to: {}", extracted);
-                return extracted;
             } catch (Exception e) {
                 String msg = index + ": " + e.getMessage();
                 log.debug("pip mirror failed: {}", msg);
@@ -88,8 +99,10 @@ public class PipResolver {
         Matcher m = linkPattern.matcher(resp.body());
         while (m.find()) {
             String href = m.group(1);
-            if (href.contains(version) && href.endsWith(".tar.gz")) {
-                return href.startsWith("http") ? href : index + href;
+            int frag = href.indexOf('#');
+            String cleanHref = frag >= 0 ? href.substring(0, frag) : href;
+            if (cleanHref.contains(version) && cleanHref.endsWith(".tar.gz")) {
+                return cleanHref.startsWith("http") ? cleanHref : index + cleanHref;
             }
         }
 

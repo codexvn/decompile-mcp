@@ -44,7 +44,7 @@ public class MavenResolver {
         this.repositories = RepositoryConfig.load().stream()
             .map(e -> new RemoteRepository.Builder(e.id(), "default", e.url()).build())
             .toList();
-        log.info("MavenResolver initialized, local: {}, repos: {}",
+        log.info("MavenResolver initialized, cache: {}, mirrors: {}",
             localRepoDir, repositories.stream().map(RemoteRepository::getUrl).toList());
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {

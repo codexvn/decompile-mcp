@@ -24,7 +24,8 @@ public class NpmResolver {
 
     private static final Logger log = LoggerFactory.getLogger(NpmResolver.class);
     private static final String DEFAULT_REGISTRY = "https://registry.npmjs.org";
-    private static final HttpClient HTTP = HttpClient.newHttpClient();
+    private static final HttpClient HTTP = HttpClient.newBuilder()
+        .followRedirects(HttpClient.Redirect.NORMAL).build();
     private static final Path CACHE_DIR = CacheConfig.npmCache();
 
     private final List<String> registries;
@@ -32,7 +33,7 @@ public class NpmResolver {
     public NpmResolver() {
         try { Files.createDirectories(CACHE_DIR); } catch (IOException ignored) {}
         this.registries = loadRegistries();
-        log.info("NpmResolver initialized, registries: {}", registries);
+        log.info("NpmResolver initialized, cache: {}, mirrors: {}", CACHE_DIR, registries);
     }
 
     public Path resolve(String packageName, String version) throws NpmException {
@@ -50,18 +51,29 @@ public class NpmResolver {
                 log.info("Downloading npm package: {}@{} from {}", packageName, version, registry);
 
                 Path tgzFile = Files.createTempFile("npm-", ".tgz");
-                HttpRequest req = HttpRequest.newBuilder(URI.create(tarballUrl)).build();
-                HttpResponse<InputStream> resp = HTTP.send(req, HttpResponse.BodyHandlers.ofInputStream());
-                try (InputStream in = resp.body()) {
-                    Files.copy(in, tgzFile);
+                try {
+                    HttpRequest req = HttpRequest.newBuilder(URI.create(tarballUrl)).build();
+                    HttpResponse<InputStream> resp = HTTP.send(req, HttpResponse.BodyHandlers.ofInputStream());
+                    if (resp.statusCode() != 200) {
+                        throw new NpmException("tarball download returned " + resp.statusCode());
+                    }
+                    try (InputStream in = resp.body()) {
+                        Files.copy(in, tgzFile, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                    }
+
+                    Path extracted = CACHE_DIR.resolve(packageName + "-" + version);
+                    extractTgz(tgzFile, extracted);
+                    Files.deleteIfExists(tgzFile);
+
+                    log.info("Extracted npm package to: {}", extracted);
+                    return extracted;
+                } catch (NpmException e) {
+                    Files.deleteIfExists(tgzFile);
+                    throw e;
+                } catch (Exception e) {
+                    Files.deleteIfExists(tgzFile);
+                    throw new NpmException(e.getMessage(), e);
                 }
-
-                Path extracted = CACHE_DIR.resolve(packageName + "-" + version);
-                extractTgz(tgzFile, extracted);
-                Files.deleteIfExists(tgzFile);
-
-                log.info("Extracted npm package to: {}", extracted);
-                return extracted;
             } catch (Exception e) {
                 String msg = registry + ": " + e.getMessage();
                 log.debug("npm mirror failed: {}", msg);
