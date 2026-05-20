@@ -1,16 +1,16 @@
-package top.codexvn.jardecompile.tool;
+package top.codexvn.decompile.mcp.jar;
 
 import java.util.List;
 import java.util.Map;
 import io.modelcontextprotocol.spec.McpSchema;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import top.codexvn.jardecompile.decompiler.DecompilerService;
-import top.codexvn.jardecompile.resolver.JarResolver;
-import top.codexvn.jardecompile.resolver.MavenCoordinate;
-import top.codexvn.jardecompile.resolver.ResolutionConfig;
-import top.codexvn.jardecompile.resolver.ResolutionResult;
-import top.codexvn.jardecompile.server.I18n;
+import top.codexvn.decompile.mcp.jar.decompiler.DecompilerService;
+import top.codexvn.decompile.mcp.jar.resolver.JarResolver;
+import top.codexvn.decompile.mcp.jar.resolver.MavenCoordinate;
+import top.codexvn.decompile.mcp.jar.resolver.ResolutionConfig;
+import top.codexvn.decompile.mcp.jar.resolver.ResolutionResult;
+import top.codexvn.decompile.mcp.server.I18n;
 
 public class JarReadTool {
 

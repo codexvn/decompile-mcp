@@ -88,6 +88,13 @@
             <artifactId>caffeine</artifactId>
             <version>3.1.8</version>
         </dependency>
+
+        <!-- Apache Commons Compress — tar.gz/tgz 解压（npm/pip 包） -->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-compress</artifactId>
+            <version>1.27.1</version>
+        </dependency>
     </dependencies>
 
     <build>
@@ -111,7 +118,7 @@
                     <appendAssemblyId>false</appendAssemblyId>
                     <archive>
                         <manifest>
-                            <mainClass>top.codexvn.jardecompile.Main</mainClass>
+                            <mainClass>top.codexvn.decompile.mcp.Main</mainClass>
                         </manifest>
                     </archive>
                     <descriptorRefs>

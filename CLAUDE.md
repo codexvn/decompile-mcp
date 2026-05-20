@@ -21,11 +21,11 @@
 ## 项目结构
 
 ```
-src/main/java/top/codexvn/jardecompile/
+src/main/java/top/codexvn/decompile/mcp/
 ├── Main.java                       — 入口点，启动 HTTP 服务器
 ├── server/
 │   ├── SseServer.java              — Tomcat 嵌入 + Streamable HTTP Servlet 注册 + 端口配置
-│   ├── JarDecompileMcpServer.java  — MCP 服务器组装：注入服务、注册工具
+│   ├── DecompileMcpServer.java     — MCP 服务器组装：注入服务、注册工具
 │   ├── I18n.java                   — 中英文切换工具
 │   ├── NetworkConfig.java          — 网卡 IP 检测 + MCP 客户端配置打印
 │   └── RequestLoggingValve.java    — 请求日志 + traceId

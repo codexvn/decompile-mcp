@@ -1,4 +1,4 @@
-package top.codexvn.jardecompile.server;
+package top.codexvn.decompile.mcp.server;
 
 import java.net.Inet4Address;
 import java.net.InetAddress;

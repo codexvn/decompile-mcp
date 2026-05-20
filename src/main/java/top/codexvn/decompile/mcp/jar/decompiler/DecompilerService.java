@@ -1,22 +1,38 @@
-package top.codexvn.jardecompile.decompiler;
+package top.codexvn.decompile.mcp.jar.decompiler;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import top.codexvn.decompile.mcp.server.CacheConfig;
 import java.io.IOException;
+import top.codexvn.decompile.mcp.server.CacheConfig;
 import java.nio.file.FileSystem;
+import top.codexvn.decompile.mcp.server.CacheConfig;
 import java.nio.file.FileSystems;
+import top.codexvn.decompile.mcp.server.CacheConfig;
 import java.nio.file.Files;
+import top.codexvn.decompile.mcp.server.CacheConfig;
 import java.nio.file.Path;
+import top.codexvn.decompile.mcp.server.CacheConfig;
 import java.nio.file.StandardCopyOption;
+import top.codexvn.decompile.mcp.server.CacheConfig;
 import java.security.MessageDigest;
+import top.codexvn.decompile.mcp.server.CacheConfig;
 import java.security.NoSuchAlgorithmException;
+import top.codexvn.decompile.mcp.server.CacheConfig;
 import java.time.Duration;
+import top.codexvn.decompile.mcp.server.CacheConfig;
 import java.util.Collections;
+import top.codexvn.decompile.mcp.server.CacheConfig;
 import java.util.Comparator;
+import top.codexvn.decompile.mcp.server.CacheConfig;
 import java.util.HexFormat;
+import top.codexvn.decompile.mcp.server.CacheConfig;
 import java.util.LinkedHashMap;
+import top.codexvn.decompile.mcp.server.CacheConfig;
 import java.util.List;
+import top.codexvn.decompile.mcp.server.CacheConfig;
 import java.util.Map;
+import top.codexvn.decompile.mcp.server.CacheConfig;
 import java.util.stream.Stream;
 import org.benf.cfr.reader.api.CfrDriver;
 import org.benf.cfr.reader.api.OutputSinkFactory;
@@ -29,8 +45,7 @@ public class DecompilerService {
     private static final Logger log = LoggerFactory.getLogger(DecompilerService.class);
 
     // 磁盘缓存根目录：~/.m2/repository/.decompiled-cache/
-    private static final Path DISK_CACHE_ROOT = Path.of(
-        System.getProperty("user.home"), ".m2", "repository", ".decompiled-cache");
+    private static final Path DISK_CACHE_ROOT = CacheConfig.decompiled();
 
     // 内存缓存：最多 50 个 JAR，30 分钟无访问自动淘汰
     private final Cache<String, Map<String, String>> memoryCache = Caffeine.newBuilder()

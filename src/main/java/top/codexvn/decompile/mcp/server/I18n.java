@@ -1,4 +1,4 @@
-package top.codexvn.jardecompile.server;
+package top.codexvn.decompile.mcp.server;
 
 /**
  * 简单的中英文切换。默认中文，通过 mcp.lang 系统属性或 MCP_LANG 环境变量切换。

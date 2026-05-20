@@ -1,32 +1,30 @@
-package top.codexvn.jardecompile.tool;
+package top.codexvn.decompile.mcp.jar;
 
-import java.nio.file.FileSystem;
-import java.nio.file.FileSystems;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.PathMatcher;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Stream;
+import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 import io.modelcontextprotocol.spec.McpSchema;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import top.codexvn.jardecompile.resolver.JarResolver;
-import top.codexvn.jardecompile.resolver.MavenCoordinate;
-import top.codexvn.jardecompile.resolver.ResolutionConfig;
-import top.codexvn.jardecompile.resolver.ResolutionResult;
-import top.codexvn.jardecompile.server.I18n;
+import top.codexvn.decompile.mcp.jar.decompiler.DecompilerService;
+import top.codexvn.decompile.mcp.jar.resolver.JarResolver;
+import top.codexvn.decompile.mcp.jar.resolver.MavenCoordinate;
+import top.codexvn.decompile.mcp.jar.resolver.ResolutionConfig;
+import top.codexvn.decompile.mcp.jar.resolver.ResolutionResult;
+import top.codexvn.decompile.mcp.server.I18n;
 
-public class JarGlobTool {
+public class JarGrepTool {
 
-    private static final Logger log = LoggerFactory.getLogger(JarGlobTool.class);
+    private static final Logger log = LoggerFactory.getLogger(JarGrepTool.class);
 
     private final JarResolver resolver;
+    private final DecompilerService decompiler;
 
-    public JarGlobTool(JarResolver resolver) {
+    public JarGrepTool(JarResolver resolver, DecompilerService decompiler) {
         this.resolver = resolver;
+        this.decompiler = decompiler;
     }
 
     public static McpSchema.Tool toolDefinition() {
@@ -34,13 +32,13 @@ public class JarGlobTool {
         String opt = I18n.zhEn("(可选) ", "(optional) ");
 
         return McpSchema.Tool.builder()
-            .name("jar_glob")
-            .title(I18n.zhEn("列出 Maven JAR 中匹配 glob 模式的条目",
-                             "List entries in a Maven JAR matching a glob pattern"))
+            .name("jar_grep")
+            .title(I18n.zhEn("在反编译的 JAR 类中搜索正则表达式",
+                             "Search for a regex pattern in decompiled JAR classes"))
             .description(I18n.zhEn(
-                "列出 Maven JAR 中匹配 glob 模式的所有条目，按字母排序返回。用于发现类文件、资源等。",
-                "List entries inside a Maven JAR matching a glob pattern. "
-                    + "Returns a sorted list of matching entry paths."))
+                "在 Maven JAR 的所有反编译类中搜索正则表达式。返回格式：类名:行号:匹配行。",
+                "Search for a regular expression across all decompiled classes in a Maven JAR. "
+                    + "Results in grep -n format: ClassName:lineNumber:matchedLine."))
             .inputSchema(new McpSchema.JsonSchema(
                 "object",
                 Map.of(
@@ -65,20 +63,20 @@ public class JarGlobTool {
                     "pattern", Map.of(
                         "type", "string",
                         "description", I18n.zhEn(
-                            req + "Glob 模式，如 '**/*Service*.class'",
-                            req + "Glob pattern, e.g. '**/*Service*.class'")
+                            req + "Java 正则表达式，在反编译/源码中搜索",
+                            req + "Java regex pattern to search in decompiled source")
                     ),
                     "prefer_source", Map.of(
                         "type", "boolean",
                         "description", I18n.zhEn(
-                            opt + "优先列出 -sources.jar 中的条目（.java），默认 true",
-                            opt + "Prefer listing from -sources.jar (.java entries), default: true")
+                            opt + "优先搜索 sources JAR 中的 .java 文件，默认 true",
+                            opt + "Prefer searching .java files in sources JAR, default: true")
                     ),
                     "force_decompile", Map.of(
                         "type", "boolean",
                         "description", I18n.zhEn(
-                            opt + "强制使用主 JAR（.class 条目），即使存在 sources JAR。默认 false",
-                            opt + "Force main JAR (.class entries) even if sources available. Default: false")
+                            opt + "强制反编译 .class 文件后搜索，即使存在 sources JAR。默认 false",
+                            opt + "Force decompile .class files even if sources JAR exists. Default: false")
                     ),
                     "repository_url", Map.of(
                         "type", "string",
@@ -104,44 +102,49 @@ public class JarGlobTool {
     public McpSchema.CallToolResult handle(Map<String, Object> arguments) {
         try {
             MavenCoordinate coord = JarReadTool.extractCoordinate(arguments);
-            String pattern = JarReadTool.requireString(arguments, "pattern");
+            String regex = JarReadTool.requireString(arguments, "pattern");
+
+            Pattern pattern;
+            try {
+                pattern = Pattern.compile(regex);
+            } catch (PatternSyntaxException e) {
+                return JarReadTool.errorResult("Invalid regex pattern: " + e.getMessage());
+            }
 
             ResolutionConfig config = JarReadTool.buildConfig(arguments);
             ResolutionResult result = resolver.resolveWithConfig(coord, config);
 
-            List<String> matches = globJar(result.jarPath(), pattern);
-            Collections.sort(matches);
+            Map<String, String> sources;
+            if (result.isSourceJar()) {
+                sources = decompiler.readAllSources(result.jarPath());
+            } else {
+                sources = decompiler.decompileAll(
+                    result.jarPath(), result.cacheNamespace());
+            }
+
+            List<String> matches = new ArrayList<>();
+            for (Map.Entry<String, String> entry : sources.entrySet()) {
+                String className = entry.getKey();
+                String source = entry.getValue()
+                    .replace("\r\n", "\n").replace('\r', '\n');
+                String[] lines = source.split("\n", -1);
+                for (int i = 0; i < lines.length; i++) {
+                    if (pattern.matcher(lines[i]).find()) {
+                        matches.add(className + ":" + (i + 1) + ":" + lines[i]);
+                    }
+                }
+            }
 
             if (matches.isEmpty()) {
-                return JarReadTool.successResult("(no entries matched pattern: " + pattern + ")");
+                return JarReadTool.successResult(
+                    "(no matches found for pattern: " + regex + ")");
             }
 
             return JarReadTool.successResult(String.join("\n", matches));
 
         } catch (Exception e) {
-            log.error("jar_glob failed", e);
+            log.error("jar_grep failed", e);
             return JarReadTool.errorResult(e.getMessage());
         }
-    }
-
-    private List<String> globJar(Path jarPath, String globPattern) throws java.io.IOException {
-        List<String> result = new ArrayList<>();
-
-        try (FileSystem fs = FileSystems.newFileSystem(jarPath, (ClassLoader) null)) {
-            PathMatcher matcher = fs.getPathMatcher("glob:" + globPattern);
-            Path root = fs.getPath("/");
-
-            try (Stream<Path> walk = Files.walk(root)) {
-                walk.filter(p -> matcher.matches(p)).forEach(p -> {
-                    String entry = p.toString();
-                    if (entry.startsWith("/")) {
-                        entry = entry.substring(1);
-                    }
-                    result.add(entry);
-                });
-            }
-        }
-
-        return result;
     }
 }

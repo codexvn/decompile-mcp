@@ -1,11 +1,18 @@
-package top.codexvn.jardecompile.resolver;
+package top.codexvn.decompile.mcp.jar.resolver;
 
+import top.codexvn.decompile.mcp.server.CacheConfig;
 import java.io.IOException;
+import top.codexvn.decompile.mcp.server.CacheConfig;
 import java.nio.file.Files;
+import top.codexvn.decompile.mcp.server.CacheConfig;
 import java.nio.file.Path;
+import top.codexvn.decompile.mcp.server.CacheConfig;
 import java.util.Comparator;
+import top.codexvn.decompile.mcp.server.CacheConfig;
 import java.util.List;
+import top.codexvn.decompile.mcp.server.CacheConfig;
 import java.util.Set;
+import top.codexvn.decompile.mcp.server.CacheConfig;
 import java.util.concurrent.ConcurrentHashMap;
 import org.eclipse.aether.DefaultRepositorySystemSession;
 import org.eclipse.aether.RepositorySystem;
@@ -250,7 +257,7 @@ public class JarResolver {
         if (env != null && !env.isBlank()) {
             return Path.of(env);
         }
-        return Path.of(System.getProperty("user.home"), ".m2", "repository");
+        return CacheConfig.mavenRepo();
     }
 
     public static class JarResolutionException extends Exception {

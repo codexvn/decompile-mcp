@@ -1,4 +1,4 @@
-package top.codexvn.jardecompile.server;
+package top.codexvn.decompile.mcp.server;
 
 import io.modelcontextprotocol.json.jackson3.JacksonMcpJsonMapper;
 import io.modelcontextprotocol.server.transport.HttpServletStreamableServerTransportProvider;
@@ -17,7 +17,7 @@ public class SseServer {
     private final int port;
     private final String host;
     private final Tomcat tomcat;
-    private final JarDecompileMcpServer mcpServer;
+    private final DecompileMcpServer mcpServer;
 
     public SseServer() {
         this(defaultPort(), defaultHost());
@@ -35,7 +35,7 @@ public class SseServer {
             .build();
 
         // 基于 Streamable HTTP 传输构建 MCP 服务器
-        this.mcpServer = new JarDecompileMcpServer(transport);
+        this.mcpServer = new DecompileMcpServer(transport);
 
         // 组装嵌入式 Tomcat
         this.tomcat = new Tomcat();
@@ -54,7 +54,7 @@ public class SseServer {
 
     public void start() throws Exception {
         log.info("========================================");
-        log.info("  jar-decompile-mcp v{}", JarDecompileMcpServer.VERSION);
+        log.info("  jar-decompile-mcp v{}", DecompileMcpServer.VERSION);
         log.info("  绑定地址: {}:{}", host, port);
         log.info("========================================");
 
