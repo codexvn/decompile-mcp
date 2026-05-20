@@ -2,6 +2,7 @@ package top.codexvn.jardecompile.server;
 
 import java.io.IOException;
 import java.util.UUID;
+import jakarta.servlet.ServletException;
 import org.apache.catalina.connector.Request;
 import org.apache.catalina.connector.Response;
 import org.apache.catalina.valves.ValveBase;
@@ -23,8 +24,7 @@ public class RequestLoggingValve extends ValveBase {
     }
 
     @Override
-    public void invoke(Request request, Response response) throws IOException {
-        // 取请求中原有的 traceId，否则生成新的
+    public void invoke(Request request, Response response) throws IOException, ServletException {
         String traceId = request.getHeader("X-Trace-Id");
         if (traceId == null || traceId.isBlank()) {
             traceId = UUID.randomUUID().toString().substring(0, 8);
@@ -32,26 +32,24 @@ public class RequestLoggingValve extends ValveBase {
         response.setHeader("X-Trace-Id", traceId);
         MDC.put(MDC_KEY, traceId);
 
+        long start = System.currentTimeMillis();
+        log.info("{} {} | remote={} | session={}",
+            request.getMethod(),
+            request.getRequestURI(),
+            request.getRemoteAddr(),
+            request.getParameter("sessionId"));
+
         try {
-            long start = System.currentTimeMillis();
-            log.info("{} {} | remote={} | session={}",
-                request.getMethod(),
-                request.getRequestURI(),
-                request.getRemoteAddr(),
-                request.getParameter("sessionId"));
-
             getNext().invoke(request, response);
-
+        } catch (IOException | ServletException | RuntimeException e) {
+            log.error("{} {} failed: {}", request.getMethod(),
+                request.getRequestURI(), e.getMessage());
+            throw e;
+        } finally {
             long elapsed = System.currentTimeMillis() - start;
             log.info("{} {} → {} {}ms",
                 request.getMethod(), request.getRequestURI(),
                 response.getStatus(), elapsed);
-
-        } catch (Exception e) {
-            log.error("{} {} failed: {}", request.getMethod(),
-                request.getRequestURI(), e.getMessage());
-            throw new IOException(e);
-        } finally {
             MDC.remove(MDC_KEY);
         }
     }

@@ -23,15 +23,11 @@ public final class NetworkConfig {
     public static void print(int port) {
         Set<String> ips = enumerateAddresses();
 
+        log.info("  以下 MCP 端点可直接导入客户端:");
         for (String ip : ips) {
             String url = "http://" + ip + ":" + port + "/mcp";
-            log.info("  MCP 端点: {}", url);
-        }
-
-        if (!ips.isEmpty()) {
-            String defaultUrl = "http://" + ips.iterator().next() + ":" + port + "/mcp";
-            String json = "{\"mcpServers\":{\"jar-decompile\":{\"url\":\"" + defaultUrl + "\"}}}";
-            log.info("  可直接导入的 MCP 客户端配置: {}", json);
+            String json = "{\"mcpServers\":{\"jar-decompile\":{\"url\":\"" + url + "\"}}}";
+            log.info("    {}", json);
         }
 
         // 始终打印 localhost

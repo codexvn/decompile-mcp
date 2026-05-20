@@ -81,6 +81,13 @@
             <artifactId>tomcat-embed-core</artifactId>
             <version>10.1.34</version>
         </dependency>
+
+        <!-- Caffeine — 高性能本地缓存，反编译结果缓存 -->
+        <dependency>
+            <groupId>com.github.ben-manes.caffeine</groupId>
+            <artifactId>caffeine</artifactId>
+            <version>3.1.8</version>
+        </dependency>
     </dependencies>
 
     <build>

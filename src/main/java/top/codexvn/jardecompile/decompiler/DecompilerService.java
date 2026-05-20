@@ -1,17 +1,22 @@
 package top.codexvn.jardecompile.decompiler;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import java.io.IOException;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.time.Duration;
 import java.util.Collections;
+import java.util.Comparator;
+import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Stream;
 import org.benf.cfr.reader.api.CfrDriver;
 import org.benf.cfr.reader.api.OutputSinkFactory;
@@ -23,13 +28,17 @@ public class DecompilerService {
 
     private static final Logger log = LoggerFactory.getLogger(DecompilerService.class);
 
-    // 缓存无大小限制和淘汰策略。设计假设：MCP 服务器作为短生命周期 sidecar
-    // 进程运行，缓存与 JVM 同生命周期（进程退出即释放）。对于 coding agent
-    // 的典型使用模式（一次会话中探索若干依赖），内存占用可控。
-    // 若需长期运行，可改为 LRU 缓存（如 Caffeine）。
-    private final ConcurrentMap<String, Map<String, String>> cache = new ConcurrentHashMap<>();
+    // 磁盘缓存根目录：~/.m2/repository/.decompiled-cache/
+    private static final Path DISK_CACHE_ROOT = Path.of(
+        System.getProperty("user.home"), ".m2", "repository", ".decompiled-cache");
 
-    // --- 向后兼容重载（无命名空间参数） ---
+    // 内存缓存：最多 50 个 JAR，30 分钟无访问自动淘汰
+    private final Cache<String, Map<String, String>> memoryCache = Caffeine.newBuilder()
+        .maximumSize(50)
+        .expireAfterAccess(Duration.ofMinutes(30))
+        .build();
+
+    // --- 向后兼容重载 ---
 
     public Map<String, String> decompileAll(Path jarPath) throws DecompilationException {
         return decompileAll(jarPath, "");
@@ -44,47 +53,56 @@ public class DecompilerService {
     public Map<String, String> decompileAll(Path jarPath, String cacheNamespace)
         throws DecompilationException {
         String key = cacheKey(jarPath, cacheNamespace);
-        Map<String, String> cached = cache.get(key);
-        if (cached != null) {
-            log.debug("Cache hit for {}", key);
-            return cached;
+
+        // 1. 内存缓存命中 → 直接返回
+        Map<String, String> memHit = memoryCache.getIfPresent(key);
+        if (memHit != null) {
+            return memHit;
         }
 
-        // 注意：cache.get 和 cache.put 之间无锁，并发请求同一 JAR 时可能
-        // 触发两次 CFR 反编译。第二次结果覆盖第一次，无正确性问题，仅浪费
-        // CPU。鉴于 MCP 工具通常串行调用，实际影响极小。
+        // 2. 磁盘缓存命中 → 加载到内存，返回
+        Map<String, String> diskResult = loadDiskCache(jarPath, cacheNamespace);
+        if (diskResult != null) {
+            memoryCache.put(key, diskResult);
+            return diskResult;
+        }
 
-        log.info("Decompiling JAR: {}", jarPath);
-        Map<String, String> results = Collections.synchronizedMap(new LinkedHashMap<>());
-
+        // 3. 缓存未命中 → 执行反编译，同时写磁盘
         try {
-            CfrDriver driver = new CfrDriver.Builder()
-                .withOutputSink(createSinkFactory(results))
-                .build();
-
-            driver.analyse(List.of(jarPath.toString()));
-
-            Map<String, String> unmodifiable = Collections.unmodifiableMap(results);
-            cache.put(key, unmodifiable);
-            log.info("Decompiled {} classes from {}", results.size(), jarPath.getFileName());
-            return unmodifiable;
-        } catch (Exception e) {
-            throw new DecompilationException(
-                "CFR decompilation failed for " + jarPath + ": " + e.getMessage(), e);
+            return memoryCache.get(key, k -> {
+                try {
+                    Map<String, String> results = doDecompileAll(jarPath);
+                    saveDiskCache(jarPath, cacheNamespace, results);
+                    return results;
+                } catch (DecompilationException e) {
+                    throw new RuntimeException(e);
+                }
+            });
+        } catch (RuntimeException e) {
+            if (e.getCause() instanceof DecompilationException de) {
+                throw de;
+            }
+            throw e;
         }
     }
 
     public String decompileClass(Path jarPath, String className, String cacheNamespace)
         throws DecompilationException {
         String key = cacheKey(jarPath, cacheNamespace);
-        Map<String, String> cached = cache.get(key);
+
+        // 先查内存和磁盘缓存
+        Map<String, String> cached = memoryCache.getIfPresent(key);
         if (cached != null) {
             return cached.get(className);
         }
 
-        // 单类提取：将 .class 条目复制到临时文件，仅反编译该文件。
-        // 避免全量反编译（如 Guava 约需 10 秒），单类提取 <1 秒。
-        // jar_grep 需要遍历所有类，走 decompileAll 路径。
+        Map<String, String> diskResult = loadDiskCache(jarPath, cacheNamespace);
+        if (diskResult != null) {
+            memoryCache.put(key, diskResult);
+            return diskResult.get(className);
+        }
+
+        // 单类提取快速路径：仅反编译目标类，不写磁盘缓存（只有 decompileAll 写）
         Path tempFile = null;
         try {
             tempFile = extractClassFile(jarPath, className);
@@ -93,38 +111,154 @@ public class DecompilerService {
             }
 
             Map<String, String> results = Collections.synchronizedMap(new LinkedHashMap<>());
-
             CfrDriver driver = new CfrDriver.Builder()
                 .withOutputSink(createSinkFactory(results))
                 .build();
-
             driver.analyse(List.of(tempFile.toString()));
 
+            String source = results.get(className);
+            if (source != null) {
+                // 将单类结果放入内存缓存，避免后续重复反编译
+                Map<String, String> partial = new LinkedHashMap<>();
+                partial.put(className, source);
+                memoryCache.put(key, Collections.unmodifiableMap(partial));
+            }
             log.debug("Decompiled single class: {}", className);
-            return results.get(className);
+            return source;
         } catch (Exception e) {
             throw new DecompilationException(
                 "CFR decompilation failed for " + className + " in " + jarPath + ": "
                     + e.getMessage(), e);
         } finally {
             if (tempFile != null) {
-                try {
-                    Files.deleteIfExists(tempFile);
-                } catch (IOException ignored) {
-                }
+                try { Files.deleteIfExists(tempFile); } catch (IOException ignored) {}
             }
         }
     }
 
-    // --- 源码 JAR 直接读取（无需反编译） ---
+    // --- 反编译引擎 ---
+
+    private Map<String, String> doDecompileAll(Path jarPath) throws DecompilationException {
+        log.info("Decompiling JAR: {}", jarPath);
+        Map<String, String> results = Collections.synchronizedMap(new LinkedHashMap<>());
+
+        try {
+            CfrDriver driver = new CfrDriver.Builder()
+                .withOutputSink(createSinkFactory(results))
+                .build();
+            driver.analyse(List.of(jarPath.toString()));
+        } catch (Exception e) {
+            throw new DecompilationException(
+                "CFR decompilation failed for " + jarPath + ": " + e.getMessage(), e);
+        }
+
+        log.info("Decompiled {} classes from {}", results.size(), jarPath.getFileName());
+        return Collections.unmodifiableMap(results);
+    }
+
+    // --- 磁盘缓存 ---
+
+    /**
+     * 磁盘缓存布局：
+     * ~/.m2/repository/.decompiled-cache/{sha256前16位}/
+     *   lastModified    — JAR 的修改时间戳，用于校验有效性
+     *   {fqcn}.java     — 反编译后的源码文件
+     */
+    private Map<String, String> loadDiskCache(Path jarPath, String namespace) {
+        Path cacheDir = diskCacheDir(jarPath, namespace);
+        Path metaFile = cacheDir.resolve("lastModified");
+
+        try {
+            if (!Files.exists(metaFile)) {
+                return null;
+            }
+
+            // 校验：JAR 修改时间与缓存时的修改时间一致
+            long jarMod = Files.getLastModifiedTime(jarPath).toMillis();
+            long cachedMod = Long.parseLong(Files.readString(metaFile).trim());
+            if (jarMod != cachedMod) {
+                log.debug("Disk cache stale for {}", jarPath);
+                deleteRecursive(cacheDir);
+                return null;
+            }
+
+            // 从磁盘加载所有 .java 文件
+            Map<String, String> results = new LinkedHashMap<>();
+            try (Stream<Path> files = Files.list(cacheDir)) {
+                files.filter(p -> p.toString().endsWith(".java"))
+                    .forEach(p -> {
+                        String fqcn = p.getFileName().toString();
+                        fqcn = fqcn.substring(0, fqcn.length() - 5); // 去 .java 后缀
+                        try {
+                            results.put(fqcn, Files.readString(p));
+                        } catch (IOException ignored) {}
+                    });
+            }
+
+            log.info("Loaded {} classes from disk cache: {}", results.size(), cacheDir);
+            return Collections.unmodifiableMap(results);
+        } catch (Exception e) {
+            log.warn("Failed to load disk cache: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    private void saveDiskCache(Path jarPath, String namespace, Map<String, String> results) {
+        Path cacheDir = diskCacheDir(jarPath, namespace);
+        try {
+            Files.createDirectories(cacheDir);
+
+            long jarMod = Files.getLastModifiedTime(jarPath).toMillis();
+            Files.writeString(cacheDir.resolve("lastModified"), String.valueOf(jarMod));
+
+            for (Map.Entry<String, String> entry : results.entrySet()) {
+                Path file = cacheDir.resolve(entry.getKey() + ".java");
+                Files.writeString(file, entry.getValue());
+            }
+
+            log.info("Saved {} classes to disk cache: {}", results.size(), cacheDir);
+        } catch (Exception e) {
+            log.warn("Failed to save disk cache: {}", e.getMessage());
+        }
+    }
+
+    private Path diskCacheDir(Path jarPath, String namespace) {
+        String raw = jarPath.toAbsolutePath().toString() + "|" + namespace;
+        // 使用 SHA-256 前 16 位十六进制作为目录名，避免 32 位 hashCode 碰撞
+        String hash = sha256Prefix(raw, 16);
+        return DISK_CACHE_ROOT.resolve(hash);
+    }
+
+    private static String sha256Prefix(String input, int hexChars) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] digest = md.digest(input.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(digest).substring(0, hexChars);
+        } catch (NoSuchAlgorithmException e) {
+            // SHA-256 是 JVM 必须支持的算法，不会发生
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static void deleteRecursive(Path dir) {
+        try {
+            if (Files.exists(dir)) {
+                try (Stream<Path> walk = Files.walk(dir)) {
+                    walk.sorted(Comparator.reverseOrder()).forEach(p -> {
+                        try { Files.deleteIfExists(p); } catch (IOException ignored) {}
+                    });
+                }
+            }
+        } catch (IOException ignored) {}
+    }
+
+    // --- 源码 JAR 直接读取 ---
 
     public String readSource(Path sourcesJar, String className) {
         String entryName = className.replace('.', '/') + ".java";
         try (FileSystem fs = FileSystems.newFileSystem(sourcesJar, (ClassLoader) null)) {
             Path sourceEntry = fs.getPath("/", entryName);
-            if (!Files.exists(sourceEntry)) {
-                return null;
-            }
+            if (!Files.exists(sourceEntry)) return null;
             return Files.readString(sourceEntry);
         } catch (IOException e) {
             log.warn("Failed to read source from {}: {}", sourcesJar.getFileName(), e.getMessage());
@@ -132,8 +266,6 @@ public class DecompilerService {
         }
     }
 
-    // 从源码 JAR 读取所有 .java 文件。不做缓存——源码读取极快（毫秒级），
-    // 远快于 CFR 反编译（秒级），缓存收益微小，反而增加内存占用。
     public Map<String, String> readAllSources(Path sourcesJar) throws IOException {
         Map<String, String> results = new LinkedHashMap<>();
         try (FileSystem fs = FileSystems.newFileSystem(sourcesJar, (ClassLoader) null)) {
@@ -142,13 +274,9 @@ public class DecompilerService {
                 walk.filter(p -> p.toString().endsWith(".java"))
                     .forEach(p -> {
                         String entryPath = p.toString();
-                        // "/com/example/Foo.java" → "com.example.Foo"
-                    String fqcn = entryPath.substring(1, entryPath.length() - 5)
-                        .replace('/', '.');
-                        try {
-                            results.put(fqcn, Files.readString(p));
-                        } catch (IOException ignored) {
-                        }
+                        String fqcn = entryPath.substring(1, entryPath.length() - 5)
+                            .replace('/', '.');
+                        try { results.put(fqcn, Files.readString(p)); } catch (IOException ignored) {}
                     });
             }
         }
@@ -156,7 +284,7 @@ public class DecompilerService {
         return results;
     }
 
-    // --- 内部工具方法 ---
+    // --- 内部工具 ---
 
     private static String cacheKey(Path jarPath, String namespace) {
         if (namespace == null || namespace.isEmpty()) {
@@ -167,13 +295,9 @@ public class DecompilerService {
 
     private Path extractClassFile(Path jarPath, String className) throws IOException {
         String entryName = className.replace('.', '/') + ".class";
-
         try (FileSystem fs = FileSystems.newFileSystem(jarPath, (ClassLoader) null)) {
             Path classEntry = fs.getPath("/", entryName);
-            if (!Files.exists(classEntry)) {
-                return null;
-            }
-
+            if (!Files.exists(classEntry)) return null;
             Path tempFile = Files.createTempFile("cfr-", ".class");
             Files.copy(classEntry, tempFile, StandardCopyOption.REPLACE_EXISTING);
             return tempFile;
@@ -206,19 +330,12 @@ public class DecompilerService {
     }
 
     private static String buildFqcn(String pkg, String clsName) {
-        if (pkg == null || pkg.isBlank()) {
-            return clsName;
-        }
+        if (pkg == null || pkg.isBlank()) return clsName;
         return pkg + "." + clsName;
     }
 
     public static class DecompilationException extends Exception {
-        public DecompilationException(String message) {
-            super(message);
-        }
-
-        public DecompilationException(String message, Throwable cause) {
-            super(message, cause);
-        }
+        public DecompilationException(String message) { super(message); }
+        public DecompilationException(String message, Throwable cause) { super(message, cause); }
     }
 }
