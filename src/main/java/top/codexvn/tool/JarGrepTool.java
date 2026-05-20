@@ -1,6 +1,5 @@
 package top.codexvn.tool;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -14,6 +13,7 @@ import top.codexvn.resolver.JarResolver;
 import top.codexvn.resolver.MavenCoordinate;
 import top.codexvn.resolver.ResolutionConfig;
 import top.codexvn.resolver.ResolutionResult;
+import top.codexvn.server.I18n;
 
 public class JarGrepTool {
 
@@ -28,50 +28,67 @@ public class JarGrepTool {
     }
 
     public static McpSchema.Tool toolDefinition() {
+        String req = I18n.zhEn("(必填) ", "(required) ");
+        String opt = I18n.zhEn("(可选) ", "(optional) ");
+
         return McpSchema.Tool.builder()
             .name("jar_grep")
-            .title("Search for a regex pattern in decompiled JAR classes")
-            .description("Search for a regular expression pattern across all decompiled classes "
-                + "in a Maven JAR. Each match is returned in grep -n format: "
-                + "ClassName:lineNumber:matchedLine. "
-                + "Use this to find usages of a method, annotation, string constant, "
-                + "or any pattern across the entire JAR.")
+            .title(I18n.zhEn("在反编译的 JAR 类中搜索正则表达式",
+                             "Search for a regex pattern in decompiled JAR classes"))
+            .description(I18n.zhEn(
+                "在 Maven JAR 的所有反编译类中搜索正则表达式。返回格式：类名:行号:匹配行。",
+                "Search for a regular expression across all decompiled classes in a Maven JAR. "
+                    + "Results in grep -n format: ClassName:lineNumber:matchedLine."))
             .inputSchema(new McpSchema.JsonSchema(
                 "object",
                 Map.of(
                     "group_id", Map.of(
                         "type", "string",
-                        "description", "Maven group ID, e.g. 'com.google.guava'"
+                        "description", I18n.zhEn(
+                            req + "Maven group ID，如 'com.google.guava'",
+                            req + "Maven group ID, e.g. 'com.google.guava'")
                     ),
                     "artifact_id", Map.of(
                         "type", "string",
-                        "description", "Maven artifact ID, e.g. 'guava'"
+                        "description", I18n.zhEn(
+                            req + "Maven artifact ID，如 'guava'",
+                            req + "Maven artifact ID, e.g. 'guava'")
                     ),
                     "version", Map.of(
                         "type", "string",
-                        "description", "Version string, e.g. '33.0.0-jre'"
+                        "description", I18n.zhEn(
+                            req + "版本号，如 '33.0.0-jre'",
+                            req + "Version string, e.g. '33.0.0-jre'")
                     ),
                     "pattern", Map.of(
                         "type", "string",
-                        "description", "Regular expression pattern to search for in decompiled source"
+                        "description", I18n.zhEn(
+                            req + "Java 正则表达式，在反编译/源码中搜索",
+                            req + "Java regex pattern to search in decompiled source")
                     ),
                     "prefer_source", Map.of(
                         "type", "boolean",
-                        "description", "Prefer searching sources JAR when available. Default: true."
+                        "description", I18n.zhEn(
+                            opt + "优先搜索 sources JAR 中的 .java 文件，默认 true",
+                            opt + "Prefer searching .java files in sources JAR, default: true")
                     ),
                     "force_decompile", Map.of(
                         "type", "boolean",
-                        "description", "Always decompile and search .class files, "
-                            + "even if sources JAR is available. Default: false."
+                        "description", I18n.zhEn(
+                            opt + "强制反编译 .class 文件后搜索，即使存在 sources JAR。默认 false",
+                            opt + "Force decompile .class files even if sources JAR exists. Default: false")
                     ),
                     "repository_url", Map.of(
                         "type", "string",
-                        "description", "Specific Maven repository URL to resolve from. "
-                            + "Example: 'https://maven.aliyun.com/repository/public'"
+                        "description", I18n.zhEn(
+                            opt + "指定 Maven 仓库 URL，覆盖已配置的仓库列表",
+                            opt + "Specific Maven repository URL, overrides configured repo list")
                     ),
                     "force_remote", Map.of(
                         "type", "boolean",
-                        "description", "Download directly from remote, bypass local cache. Default: false."
+                        "description", I18n.zhEn(
+                            opt + "直接从远程下载到临时目录，绕过本地缓存。默认 false",
+                            opt + "Download from remote to temp dir, bypassing local cache. Default: false")
                     )
                 ),
                 List.of("group_id", "artifact_id", "version", "pattern"),
@@ -108,7 +125,6 @@ public class JarGrepTool {
             List<String> matches = new ArrayList<>();
             for (Map.Entry<String, String> entry : sources.entrySet()) {
                 String className = entry.getKey();
-                // 标准化行尾符，避免 Windows \r\n 导致匹配行末尾携带 \r
                 String source = entry.getValue()
                     .replace("\r\n", "\n").replace('\r', '\n');
                 String[] lines = source.split("\n", -1);

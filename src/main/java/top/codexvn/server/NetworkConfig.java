@@ -30,8 +30,8 @@ public final class NetworkConfig {
 
         if (!ips.isEmpty()) {
             String defaultUrl = "http://" + ips.iterator().next() + ":" + port + "/sse";
-            log.info("  可直接导入的 MCP 客户端配置:");
-            log.info("  {{\"mcpServers\":{{\"jar-decompile\":{{\"url\":\"{}\"}}}}}}", defaultUrl);
+            String json = "{\"mcpServers\":{\"jar-decompile\":{\"url\":\"" + defaultUrl + "\"}}}";
+            log.info("  可直接导入的 MCP 客户端配置: {}", json);
         }
 
         // 始终打印 localhost

@@ -10,6 +10,7 @@ import top.codexvn.resolver.JarResolver;
 import top.codexvn.resolver.MavenCoordinate;
 import top.codexvn.resolver.ResolutionConfig;
 import top.codexvn.resolver.ResolutionResult;
+import top.codexvn.server.I18n;
 
 public class JarReadTool {
 
@@ -24,59 +25,81 @@ public class JarReadTool {
     }
 
     public static McpSchema.Tool toolDefinition() {
+        String req = I18n.zhEn("(必填) ", "(required) ");
+        String opt = I18n.zhEn("(可选) ", "(optional) ");
+
         return McpSchema.Tool.builder()
             .name("jar_read")
-            .title("Read and decompile a class from a Maven JAR")
-            .description("Decompile a specific class from a Maven JAR and return its Java source. "
-                + "Output is formatted with line numbers in cat -n style. "
-                + "Use this to inspect the decompiled source of a class from any Maven artifact.")
+            .title(I18n.zhEn("读取并反编译 Maven JAR 中的类",
+                             "Read and decompile a class from a Maven JAR"))
+            .description(I18n.zhEn(
+                "反编译 Maven JAR 中的指定类并返回 Java 源码。输出格式为 cat -n 风格带行号。",
+                "Decompile a specific class from a Maven JAR and return its Java source. "
+                    + "Output is formatted with line numbers in cat -n style."))
             .inputSchema(new McpSchema.JsonSchema(
                 "object",
                 Map.of(
                     "group_id", Map.of(
                         "type", "string",
-                        "description", "Maven group ID, e.g. 'com.google.guava'"
+                        "description", I18n.zhEn(
+                            req + "Maven group ID，如 'com.google.guava'",
+                            req + "Maven group ID, e.g. 'com.google.guava'")
                     ),
                     "artifact_id", Map.of(
                         "type", "string",
-                        "description", "Maven artifact ID, e.g. 'guava'"
+                        "description", I18n.zhEn(
+                            req + "Maven artifact ID，如 'guava'",
+                            req + "Maven artifact ID, e.g. 'guava'")
                     ),
                     "version", Map.of(
                         "type", "string",
-                        "description", "Version string, e.g. '33.0.0-jre'"
+                        "description", I18n.zhEn(
+                            req + "版本号，如 '33.0.0-jre'",
+                            req + "Version string, e.g. '33.0.0-jre'")
                     ),
                     "class_name", Map.of(
                         "type", "string",
-                        "description", "Fully qualified class name, e.g. 'com.google.common.collect.Lists'"
+                        "description", I18n.zhEn(
+                            req + "全限定类名，如 'com.google.common.collect.Lists'",
+                            req + "Fully qualified class name, e.g. 'com.google.common.collect.Lists'")
                     ),
                     "offset", Map.of(
                         "type", "integer",
-                        "description", "Line number to start reading from (1-based, default: 1)"
+                        "description", I18n.zhEn(
+                            opt + "起始行号，1-based，默认 1",
+                            opt + "Line number to start reading from, 1-based, default: 1")
                     ),
                     "limit", Map.of(
                         "type", "integer",
-                        "description", "Maximum number of lines to return (default: unlimited)"
+                        "description", I18n.zhEn(
+                            opt + "最大返回行数，默认不限制",
+                            opt + "Maximum number of lines to return, default: unlimited")
                     ),
                     "prefer_source", Map.of(
                         "type", "boolean",
-                        "description", "Prefer reading from -sources.jar when available. "
-                            + "Sources JARs contain original .java files with comments. Default: true."
+                        "description", I18n.zhEn(
+                            opt + "优先从 -sources.jar 读取原始源码（含注释和原始变量名），不存在时回退到反编译。默认 true",
+                            opt + "Prefer reading from -sources.jar (original source with comments). "
+                                + "Falls back to decompilation if unavailable. Default: true")
                     ),
                     "force_decompile", Map.of(
                         "type", "boolean",
-                        "description", "Always decompile from .class files, "
-                            + "even if a sources JAR is available. Default: false."
+                        "description", I18n.zhEn(
+                            opt + "强制 CFR 反编译，即使存在 sources JAR。默认 false",
+                            opt + "Force CFR decompilation even if sources JAR exists. Default: false")
                     ),
                     "repository_url", Map.of(
                         "type", "string",
-                        "description", "Specific Maven repository URL to resolve from. "
-                            + "Overrides configured repository priority list. "
-                            + "Example: 'https://maven.aliyun.com/repository/public'"
+                        "description", I18n.zhEn(
+                            opt + "指定 Maven 仓库 URL，覆盖已配置的仓库列表，如 'https://maven.aliyun.com/repository/public'",
+                            opt + "Specific Maven repository URL, overrides configured repo list. "
+                                + "Example: 'https://maven.aliyun.com/repository/public'")
                     ),
                     "force_remote", Map.of(
                         "type", "boolean",
-                        "description", "Download directly from remote to a temp location, "
-                            + "completely bypassing the local Maven cache. Default: false."
+                        "description", I18n.zhEn(
+                            opt + "直接从远程下载到临时目录，完全绕过本地 Maven 缓存。默认 false",
+                            opt + "Download directly from remote to temp dir, bypassing local cache. Default: false")
                     )
                 ),
                 List.of("group_id", "artifact_id", "version", "class_name"),

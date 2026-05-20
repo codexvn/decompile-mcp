@@ -17,6 +17,7 @@ import top.codexvn.resolver.JarResolver;
 import top.codexvn.resolver.MavenCoordinate;
 import top.codexvn.resolver.ResolutionConfig;
 import top.codexvn.resolver.ResolutionResult;
+import top.codexvn.server.I18n;
 
 public class JarGlobTool {
 
@@ -29,47 +30,67 @@ public class JarGlobTool {
     }
 
     public static McpSchema.Tool toolDefinition() {
+        String req = I18n.zhEn("(必填) ", "(required) ");
+        String opt = I18n.zhEn("(可选) ", "(optional) ");
+
         return McpSchema.Tool.builder()
             .name("jar_glob")
-            .title("List entries in a Maven JAR matching a glob pattern")
-            .description("List entries inside a Maven JAR matching a glob pattern. "
-                + "Returns a sorted list of matching entry paths. "
-                + "Use this to discover class files, resources, or any JAR content.")
+            .title(I18n.zhEn("列出 Maven JAR 中匹配 glob 模式的条目",
+                             "List entries in a Maven JAR matching a glob pattern"))
+            .description(I18n.zhEn(
+                "列出 Maven JAR 中匹配 glob 模式的所有条目，按字母排序返回。用于发现类文件、资源等。",
+                "List entries inside a Maven JAR matching a glob pattern. "
+                    + "Returns a sorted list of matching entry paths."))
             .inputSchema(new McpSchema.JsonSchema(
                 "object",
                 Map.of(
                     "group_id", Map.of(
                         "type", "string",
-                        "description", "Maven group ID, e.g. 'com.google.guava'"
+                        "description", I18n.zhEn(
+                            req + "Maven group ID，如 'com.google.guava'",
+                            req + "Maven group ID, e.g. 'com.google.guava'")
                     ),
                     "artifact_id", Map.of(
                         "type", "string",
-                        "description", "Maven artifact ID, e.g. 'guava'"
+                        "description", I18n.zhEn(
+                            req + "Maven artifact ID，如 'guava'",
+                            req + "Maven artifact ID, e.g. 'guava'")
                     ),
                     "version", Map.of(
                         "type", "string",
-                        "description", "Version string, e.g. '33.0.0-jre'"
+                        "description", I18n.zhEn(
+                            req + "版本号，如 '33.0.0-jre'",
+                            req + "Version string, e.g. '33.0.0-jre'")
                     ),
                     "pattern", Map.of(
                         "type", "string",
-                        "description", "Glob pattern, e.g. '**/*Service*.class'"
+                        "description", I18n.zhEn(
+                            req + "Glob 模式，如 '**/*Service*.class'",
+                            req + "Glob pattern, e.g. '**/*Service*.class'")
                     ),
                     "prefer_source", Map.of(
                         "type", "boolean",
-                        "description", "Prefer listing from -sources.jar when available. Default: true."
+                        "description", I18n.zhEn(
+                            opt + "优先列出 -sources.jar 中的条目（.java），默认 true",
+                            opt + "Prefer listing from -sources.jar (.java entries), default: true")
                     ),
                     "force_decompile", Map.of(
                         "type", "boolean",
-                        "description", "Always use the main JAR, even if sources JAR is available. Default: false."
+                        "description", I18n.zhEn(
+                            opt + "强制使用主 JAR（.class 条目），即使存在 sources JAR。默认 false",
+                            opt + "Force main JAR (.class entries) even if sources available. Default: false")
                     ),
                     "repository_url", Map.of(
                         "type", "string",
-                        "description", "Specific Maven repository URL to resolve from. "
-                            + "Example: 'https://maven.aliyun.com/repository/public'"
+                        "description", I18n.zhEn(
+                            opt + "指定 Maven 仓库 URL，覆盖已配置的仓库列表",
+                            opt + "Specific Maven repository URL, overrides configured repo list")
                     ),
                     "force_remote", Map.of(
                         "type", "boolean",
-                        "description", "Download directly from remote, bypass local cache. Default: false."
+                        "description", I18n.zhEn(
+                            opt + "直接从远程下载到临时目录，绕过本地缓存。默认 false",
+                            opt + "Download from remote to temp dir, bypassing local cache. Default: false")
                     )
                 ),
                 List.of("group_id", "artifact_id", "version", "pattern"),

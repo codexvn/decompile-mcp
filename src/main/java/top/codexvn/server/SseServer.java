@@ -27,10 +27,11 @@ public class SseServer {
         this.port = port;
         this.host = host;
 
-        // SSE 传输提供者——它本身就是一个 Servlet
+        // SSE 传输提供者——它本身就是一个 Servlet。
+        // 不设置 baseUrl，让 SDK 从请求的 Host 头自动推导，避免
+        // 因 bind 0.0.0.0 与实际连接 IP 不一致导致 origin mismatch。
         var transport = HttpServletSseServerTransportProvider.builder()
             .jsonMapper(new JacksonMcpJsonMapper(new JsonMapper()))
-            .baseUrl("http://" + host + ":" + port)
             .messageEndpoint("/message")
             .sseEndpoint("/sse")
             .keepAliveInterval(Duration.ofSeconds(30))
