@@ -136,14 +136,17 @@ public class MavenGrepTool {
             }
 
             if (matches.isEmpty()) {
+                log.info("maven_grep {}:/{}/ -> no matches", coord, regex);
                 return MavenReadTool.successResult(
                     "(no matches found for pattern: " + regex + ")");
             }
 
+            log.info("maven_grep {}:/{}/ -> {} matches across {} classes",
+                coord, regex, matches.size(), sources.size());
             return MavenReadTool.successResult(String.join("\n", matches));
 
         } catch (Exception e) {
-            log.error("maven_grep failed", e);
+            log.error("maven_grep failed: {} {}", arguments, e.getMessage());
             return MavenReadTool.errorResult(e.getMessage());
         }
     }

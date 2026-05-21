@@ -58,9 +58,10 @@ public class PipGrepTool {
                     } catch (Exception ignored) {}
                 });
             }
+            log.info("pip_grep {}=={}:/{}/ -> {} matches", pkg, ver, regex, matches.size());
             return ok(matches.isEmpty() ? "(no matches)" : String.join("\n", matches));
         } catch (Exception e) {
-            log.error("pip_grep failed", e);
+            log.error("pip_grep failed: {} {}", arguments, e.getMessage());
             return err(e.getMessage());
         }
     }

@@ -48,9 +48,10 @@ public class NpmGlobTool {
                 });
             }
             Collections.sort(matches);
+            log.info("npm_glob {}@{}:{} -> {} entries", pkg, ver, pattern, matches.size());
             return ok(matches.isEmpty() ? "(no matches)" : String.join("\n", matches));
         } catch (Exception e) {
-            log.error("npm_glob failed", e);
+            log.error("npm_glob failed: {} {}", arguments, e.getMessage());
             return err(e.getMessage());
         }
     }

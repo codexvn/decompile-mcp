@@ -48,9 +48,10 @@ public class PipGlobTool {
                 });
             }
             Collections.sort(matches);
+            log.info("pip_glob {}=={}:{} -> {} entries", pkg, ver, pattern, matches.size());
             return ok(matches.isEmpty() ? "(no matches)" : String.join("\n", matches));
         } catch (Exception e) {
-            log.error("pip_glob failed", e);
+            log.error("pip_glob failed: {} {}", arguments, e.getMessage());
             return err(e.getMessage());
         }
     }

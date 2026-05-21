@@ -113,13 +113,15 @@ public class MavenGlobTool {
             Collections.sort(matches);
 
             if (matches.isEmpty()) {
+                log.info("maven_glob {}:{} -> no matches", coord, pattern);
                 return MavenReadTool.successResult("(no entries matched pattern: " + pattern + ")");
             }
 
+            log.info("maven_glob {}:{} -> {} entries", coord, pattern, matches.size());
             return MavenReadTool.successResult(String.join("\n", matches));
 
         } catch (Exception e) {
-            log.error("maven_glob failed", e);
+            log.error("maven_glob failed: {} {}", arguments, e.getMessage());
             return MavenReadTool.errorResult(e.getMessage());
         }
     }

@@ -54,10 +54,12 @@ public class NpmReadTool {
             }
 
             String source = Files.readString(file);
+            int lineCount = (int) source.lines().count();
+            log.info("npm_read {}@{}:{} -> {} lines", pkg, ver, filePath, lineCount);
             return ok(formatWithLineNumbers(source));
 
         } catch (Exception e) {
-            log.error("npm_read failed", e);
+            log.error("npm_read failed: {} {}", arguments, e.getMessage());
             return err(e.getMessage());
         }
     }

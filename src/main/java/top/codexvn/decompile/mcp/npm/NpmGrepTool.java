@@ -58,9 +58,10 @@ public class NpmGrepTool {
                     } catch (Exception ignored) {}
                 });
             }
+            log.info("npm_grep {}@{}:/{}/ -> {} matches", pkg, ver, regex, matches.size());
             return ok(matches.isEmpty() ? "(no matches)" : String.join("\n", matches));
         } catch (Exception e) {
-            log.error("npm_grep failed", e);
+            log.error("npm_grep failed: {} {}", arguments, e.getMessage());
             return err(e.getMessage());
         }
     }

@@ -143,10 +143,12 @@ public class MavenReadTool {
             }
 
             String formatted = formatWithLineNumbers(source, offset, limit);
+            int lineCount = (int) source.lines().count();
+            log.info("maven_read {}:{} -> {} lines returned", coord, className, lineCount);
             return successResult(formatted);
 
         } catch (Exception e) {
-            log.error("maven_read failed", e);
+            log.error("maven_read failed: {} {}", arguments, e.getMessage());
             return errorResult(e.getMessage());
         }
     }
