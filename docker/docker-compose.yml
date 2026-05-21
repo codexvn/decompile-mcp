@@ -10,10 +10,14 @@ services:
       - "${SERVER_PORT:-8080}:8080"
     volumes:
       # 挂载缓存目录，持久化已下载的包（Maven/npm/PyPI + 反编译缓存）
-      - ${HOME}/.decompile-mcp:/maven-repo
+      - ${HOME}/.decompile-mcp:/decompile-cache
     environment:
       - SERVER_PORT=8080
       - SERVER_HOST=0.0.0.0
-      # 可选：配置 Maven 镜像仓库列表
-      - M2_REPOSITORIES=${M2_REPOSITORIES:-}
+      # Maven 镜像示例，按需替换
+      # - M2_REPOSITORIES=https://maven.aliyun.com/repository/public
+      # npm 镜像示例
+      # - NPM_MIRRORS=https://registry.npmmirror.com
+      # PyPI 镜像示例
+      # - PIP_MIRRORS=https://pypi.tuna.tsinghua.edu.cn/simple/
     restart: "no"

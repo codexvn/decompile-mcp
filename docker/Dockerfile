@@ -19,17 +19,18 @@ WORKDIR /app
 # 从构建阶段复制 fat JAR
 COPY --from=builder /build/target/decompile-mcp.jar /app/decompile-mcp.jar
 
-# 确保 mcp 用户对工作目录有写权限（Tomcat 需要在 /app 下创建临时目录）
+# 确保 mcp 用户对工作目录和数据目录有写权限
 RUN chown -R mcp:mcp /app
+RUN mkdir -p /decompile-cache && chown -R mcp:mcp /decompile-cache
 
 # Streamable HTTP 默认端口
 EXPOSE 8080
 
-# 挂载点：统一缓存目录，持久化已下载的包避免重复下载
-VOLUME ["/maven-repo"]
+# 挂载点：统一缓存目录，持久化已下载的包和反编译结果
+VOLUME ["/decompile-cache"]
 
 # 容器使用非 root 用户
 USER mcp
 
-# Maven 仓库指向挂载卷；npm/pip 缓存使用默认位置（可在运行时通过 DECOMPILE_CACHE_DIR 覆盖）
-ENTRYPOINT ["java", "-Dmaven.repo.local=/maven-repo", "-jar", "/app/decompile-mcp.jar"]
+# 通过 DECOMPILE_CACHE_DIR 将缓存指向挂载卷
+ENTRYPOINT ["java", "-Ddecompile.cache.dir=/decompile-cache", "-jar", "/app/decompile-mcp.jar"]
