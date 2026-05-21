@@ -138,6 +138,8 @@ public class MavenResolver {
     private Path resolveRemote(MavenCoordinate coord,
                                 List<RemoteRepository> repos)
         throws MavenResolutionException {
+        log.info("Resolving Maven artifact: {} from {}", coord,
+            repos.stream().map(RemoteRepository::getUrl).toList());
         try {
             ArtifactRequest request = new ArtifactRequest();
             request.setArtifact(new DefaultArtifact(coord.toAetherCoordinate()));
@@ -162,6 +164,8 @@ public class MavenResolver {
     private Path resolveForceRemote(MavenCoordinate coord,
                                      List<RemoteRepository> repos)
         throws MavenResolutionException {
+        log.info("Resolving Maven artifact (force remote): {} from {}",
+            coord, repos.stream().map(RemoteRepository::getUrl).toList());
         Path tempRepoDir;
         try {
             tempRepoDir = Files.createTempDirectory("mcp-remote-");

@@ -48,7 +48,7 @@ public class NpmResolver {
         for (String registry : registries) {
             try {
                 String tarballUrl = getTarballUrl(registry, packageName, version);
-                log.info("Downloading npm package: {}@{} from {}", packageName, version, registry);
+                log.info("Downloading npm package: {}@{} -> {}", packageName, version, tarballUrl);
 
                 Path tgzFile = Files.createTempFile("npm-", ".tgz");
                 try {

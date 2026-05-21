@@ -48,7 +48,7 @@ public class PipResolver {
         for (String index : indices) {
             try {
                 String downloadUrl = findSdistUrl(index, packageName, version);
-                log.info("Downloading pip package: {}=={} from {}", packageName, version, index);
+                log.info("Downloading pip package: {}=={} -> {}", packageName, version, downloadUrl);
 
                 Path tgzFile = Files.createTempFile("pip-", ".tar.gz");
                 try {
